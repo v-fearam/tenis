@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/dev/tenis log --oneline -5)",
+      "Bash(git -C /c/dev/tenis status --short)"
+    ]
+  }
+}
