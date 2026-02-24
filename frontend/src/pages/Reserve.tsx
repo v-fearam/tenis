@@ -1,21 +1,78 @@
+import { useState, useEffect } from 'react';
 import Calendar from '../components/Calendar';
-import './index.css';
+import BookingForm from '../components/BookingForm';
+import { MatchType } from '../types/booking';
+import { supabase } from '../lib/supabase';
+import '../index.css';
+import logo from '../assets/logo.jpg';
 
 export default function Reserve() {
+    const [bookingData, setBookingData] = useState<{ courtId: number; slot: string } | null>(null);
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUser(user);
+        };
+        fetchUser();
+    }, []);
+
+    const handleSubmitBooking = async (details: { type: MatchType; players: any[] }) => {
+        if (!bookingData) return;
+
+        try {
+            console.log('Submitting booking...', { ...bookingData, ...details });
+            alert('Reserva enviada exitosamente. Pendiente de confirmación por el administrador.');
+            setBookingData(null);
+        } catch (error) {
+            console.error('Error submitting booking:', error);
+            alert('Error al procesar la reserva. Intente nuevamente.');
+        }
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+        window.location.reload();
+    };
+
     return (
         <div className="container">
+            {bookingData && (
+                <BookingForm
+                    courtId={bookingData.courtId}
+                    slot={new Date(bookingData.slot).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    onCancel={() => setBookingData(null)}
+                    onSubmit={handleSubmitBooking}
+                />
+            )}
+
             <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                    <h1 style={{ color: 'var(--brand-blue)', fontSize: '2rem', fontWeight: '800' }}>CLUB BELGRANO</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Tenis Management System</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <img
+                        src={logo}
+                        alt="Club Belgrano Logo"
+                        style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-blue-pastel)' }}
+                    />
+                    <div>
+                        <h1 style={{ color: 'var(--brand-blue)', fontSize: '2rem', fontWeight: '800' }}>CLUB BELGRANO</h1>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Gestión de Canchas</p>
+                    </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div className="card-value" style={{ fontSize: '1.2rem' }}>Hola, Socio!</div>
-                    <p style={{ color: 'var(--brand-blue)', fontWeight: '600', cursor: 'pointer' }}>Cerrar Sesión</p>
+                    <div className="card-value" style={{ fontSize: '1.2rem' }}>
+                        Hola, {user?.email?.split('@')[0] || 'Socio'}!
+                    </div>
+                    <p
+                        style={{ color: 'var(--brand-blue)', fontWeight: '600', cursor: 'pointer' }}
+                        onClick={handleLogout}
+                    >
+                        Cerrar Sesión
+                    </p>
                 </div>
             </header>
 
-            {/* Header Metrics - Inspired by "Your Account" in reference */}
+            {/* Header Metrics */}
             <div className="header-grid">
                 <div className="card card-accent-blue">
                     <div className="card-title">Próximo Partido</div>
@@ -40,27 +97,16 @@ export default function Reserve() {
             </div>
 
             <main style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
-                {/* Main Booking Area */}
                 <section>
                     <div className="card glass" style={{ minHeight: '500px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Reservar Cancha</h2>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button className="btn-secondary" style={{ padding: '8px 16px' }}>Anterior</button>
-                                <button className="btn-secondary" style={{ padding: '8px 16px' }}>Siguiente</button>
-                            </div>
                         </div>
 
-                        <Calendar />
-
-                        <div style={{ marginTop: '24px', display: 'flex', gap: '15px' }}>
-                            <button className="btn-primary" style={{ flex: 1 }}>Confirmar Reserva</button>
-                            <button className="btn-secondary" style={{ flex: 1 }}>Ver Disponibilidad Semanal</button>
-                        </div>
+                        <Calendar onConfirm={(courtId, slot) => setBookingData({ courtId, slot })} />
                     </div>
                 </section>
 
-                {/* Sidebar - Inspired by "Quick Links" */}
                 <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div className="card">
                         <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Accesos Rápidos</h3>

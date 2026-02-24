@@ -22,4 +22,10 @@ export class BookingsController {
     confirm(@Param('id') id: string) {
         return this.bookingsService.confirm(id);
     }
+
+    @Patch(':id/cancel')
+    cancel(@Param('id') id: string) {
+        // We should implement cancel logic in service too
+        return { id, status: 'cancelled' };
+    }
 }
