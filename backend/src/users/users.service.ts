@@ -33,6 +33,22 @@ export class UsersService {
     return data;
   }
 
+  async searchPublic(query: string) {
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from('usuarios')
+      .select('id, nombre, email, dni')
+      .eq('estado', 'activo')
+      .or(
+        `nombre.ilike.%${query}%,dni.ilike.%${query}%,email.ilike.%${query}%`,
+      )
+      .order('nombre')
+      .limit(10);
+
+    if (error) throw error;
+    return data;
+  }
+
   async search(query: string) {
     const client = this.supabaseService.getClient();
     const { data, error } = await client

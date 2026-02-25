@@ -38,8 +38,22 @@ npm run lint --workspace=frontend    # ESLint
 tenis/
 ├── backend/                   # NestJS API
 │   ├── src/
-│   │   ├── main.ts            # Entry point (port 3000, CORS enabled)
+│   │   ├── main.ts            # Entry point (port 3000, CORS enabled, /api prefix)
 │   │   ├── app.module.ts      # Root module
+│   │   ├── auth/              # Authentication & authorization
+│   │   │   ├── auth.controller.ts   # POST /login, /register, GET /me
+│   │   │   ├── auth.service.ts      # Supabase Auth integration
+│   │   │   ├── dto/auth.dto.ts      # LoginDto, RegisterDto
+│   │   │   ├── guards/
+│   │   │   │   ├── jwt-auth.guard.ts  # Bearer token validation via Supabase
+│   │   │   │   └── roles.guard.ts     # RBAC based on user.rol
+│   │   │   └── decorators/
+│   │   │       ├── current-user.decorator.ts  # @CurrentUser() param decorator
+│   │   │       └── roles.decorator.ts         # @Roles('admin') metadata
+│   │   ├── users/             # User CRUD (admin-only) + public search
+│   │   │   ├── users.controller.ts   # UsersPublicController + UsersController
+│   │   │   ├── users.service.ts      # CRUD for usuarios + socios tables
+│   │   │   └── dto/user.dto.ts       # CreateUserDto, UpdateUserDto, UpdateSocioDto
 │   │   ├── bookings/          # Booking feature module
 │   │   │   ├── bookings.controller.ts   # REST endpoints
 │   │   │   ├── bookings.service.ts      # Business logic & debt engine
@@ -49,18 +63,27 @@ tenis/
 │   └── .env                   # SUPABASE_URL, SUPABASE_KEY, PORT
 ├── frontend/                  # Vite + React UI
 │   ├── src/
-│   │   ├── App.tsx            # Root component with routing
+│   │   ├── App.tsx            # Root component with routing & AuthProvider
 │   │   ├── index.css          # Global pastel design system (CSS vars)
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx # Auth state management (login/logout, token persistence)
 │   │   ├── components/
-│   │   │   ├── Calendar.tsx   # Court/time slot selection grid
-│   │   │   └── BookingForm.tsx # Multi-step booking modal
+│   │   │   ├── Calendar.tsx       # Court/time slot selection grid
+│   │   │   ├── BookingForm.tsx    # 2-step booking: type selection → player management
+│   │   │   └── ProtectedRoute.tsx # Route guard with role-based access
 │   │   ├── pages/
-│   │   │   ├── Reserve.tsx    # Main booking dashboard
-│   │   │   └── AdminDashboard.tsx # Admin approval panel
-│   │   ├── lib/supabase.ts    # Supabase client init
-│   │   └── types/booking.ts   # Shared TS interfaces
+│   │   │   ├── Login.tsx          # Login page with club branding
+│   │   │   ├── Reserve.tsx        # Public booking dashboard (auth optional)
+│   │   │   ├── AdminDashboard.tsx # Admin approval panel (admin-only)
+│   │   │   └── AdminUsers.tsx     # Admin user CRUD management (admin-only)
+│   │   ├── lib/
+│   │   │   ├── supabase.ts    # Supabase client init
+│   │   │   └── api.ts         # API client with Bearer token injection
+│   │   └── types/
+│   │       ├── booking.ts     # MatchType, BookingStatus enums
+│   │       └── user.ts        # Usuario, Socio, payload interfaces
 │   ├── vercel.json            # SPA rewrite config
-│   └── .env                   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+│   └── .env                   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL
 ├── docs/requirements/         # Requirements analysis
 ├── .agents/skills/            # AI agent skills (see Skills section)
 └── package.json               # NPM workspaces root
@@ -74,28 +97,62 @@ tenis/
 
 - Feature modules pattern: each feature has its own `module`, `controller`, `service`, and `dto/` folder
 - `SupabaseService` is a global injectable that provides the Supabase client via `getClient()`
+- **Authentication**: Supabase Auth with JWT validation in `JwtAuthGuard`, role-based access via `RolesGuard` + `@Roles()` decorator
+- **User management**: Admin creates users via `auth.admin.createUser()` → trigger auto-creates `usuarios` row → service creates `socios` row if role is socio
 - **Booking confirmation flow** (key business logic in `bookings.service.ts`):
   1. Create booking with players → status `pending`
   2. Admin confirms → fetches `monthly_parameters` for pricing, updates status to `confirmed`
-  3. For each player: looks up `profiles.membership_type`, calculates proportional cost, inserts debt into `payments` table
+  3. For each player: looks up membership type, calculates proportional cost, inserts debt into `payments` table
 - Membership tiers affect pricing: Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio
 
 ### Frontend (Vite + React + TypeScript)
 
-- Routing via React Router v7 (`/` → Reserve, `/admin` → AdminDashboard)
+- **Routing** via React Router v7:
+  - `/` → Reserve (public, no auth required)
+  - `/login` → Login page
+  - `/admin` → AdminDashboard (admin-only, protected)
+  - `/admin/users` → AdminUsers CRUD (admin-only, protected)
+- **AuthContext**: manages login/logout, stores token in localStorage, injects Bearer token into API client
+- **API client** (`lib/api.ts`): centralized fetch wrapper with automatic auth header injection
 - Vanilla CSS with a pastel design system defined in `index.css` (CSS variables: `--brand-blue`, `--clay-orange`, etc.)
 - `Calendar.tsx`: 5 courts × 9 time slots (08:00–20:00, 90-min intervals), 7-day selector
-- `BookingForm.tsx`: modal with match type selection (single/double) and player management
-- Supabase client initialized in `lib/supabase.ts` using `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+- `BookingForm.tsx`: 2-step modal — (1) match type selection (single/double), (2) player slots with socio search or guest name entry
+- `ProtectedRoute.tsx`: redirects to `/login` if unauthenticated, blocks non-admin from admin routes
 
 ### Database (Supabase/PostgreSQL)
 
-Key tables referenced in code: `bookings`, `booking_players`, `courts`, `profiles`, `monthly_parameters`, `payments`.
+Key tables: `usuarios`, `socios`, `bookings`, `booking_players`, `courts`, `court_blocks`, `monthly_parameters`, `payments`, `profiles` (legacy).
+
+- `usuarios`: linked to `auth.users` via FK, stores nombre, dni, telefono, email, rol (admin/socio/no-socio), estado (activo/inactivo)
+- `socios`: linked to `usuarios`, stores nro_socio (auto-increment), activo flag
+- Trigger `handle_new_user` on `auth.users` auto-creates `usuarios` row with rol from `raw_user_meta_data`
+- RLS enabled on all tables with policies for self-access and admin management
+
+### API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | Public | Login with email/password |
+| POST | `/api/auth/register` | Public | Register new user |
+| GET | `/api/auth/me` | JWT | Get current user profile |
+| GET | `/api/users/search-socios?q=` | Public | Search active users (minimal fields: id, nombre, email, dni) |
+| GET | `/api/users/me` | JWT | Get own user details |
+| GET | `/api/users` | Admin | List all users |
+| GET | `/api/users/search?q=` | Admin | Search users (full details) |
+| GET | `/api/users/:id` | Admin | Get user by ID |
+| POST | `/api/users` | Admin | Create user (creates auth + usuarios + socios) |
+| PATCH | `/api/users/:id` | Admin | Update user fields |
+| PATCH | `/api/users/:id/socio` | Admin | Update socio membership details |
+| DELETE | `/api/users/:id` | Admin | Soft-delete (set estado=inactivo) |
+| POST | `/api/bookings` | JWT | Create booking |
+| GET | `/api/bookings` | JWT | List bookings |
+| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm booking + generate debt |
+| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking |
 
 ### Environment Variables
 
-- Backend `.env`: `SUPABASE_URL`, `SUPABASE_KEY`, `PORT`
-- Frontend `.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- Backend `.env`: `SUPABASE_URL`, `SUPABASE_KEY` (service role key), `PORT`
+- Frontend `.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL` (defaults to `http://localhost:3000/api`)
 
 ## Deployment
 

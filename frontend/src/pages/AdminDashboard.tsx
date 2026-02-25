@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Check, X, Clock, User } from 'lucide-react';
+import { Check, X, Clock, User, Users } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import logo from '../assets/logo.jpg';
 
 interface Booking {
@@ -12,12 +14,12 @@ interface Booking {
 }
 
 export default function AdminDashboard() {
+    const { logout } = useAuth();
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetch('http://localhost:3000/bookings')
-            .then(res => res.json())
+        api.get<Booking[]>('/bookings')
             .then(data => {
                 setBookings(data);
                 setLoading(false);
@@ -30,31 +32,23 @@ export default function AdminDashboard() {
 
     const handleConfirm = async (id: string) => {
         try {
-            const res = await fetch(`http://localhost:3000/bookings/${id}/confirm`, {
-                method: 'PATCH',
-            });
-            if (!res.ok) throw new Error('Failed to confirm');
-
+            await api.patch(`/bookings/${id}/confirm`, {});
             setBookings(bookings.map(b => b.id === id ? { ...b, status: 'confirmed' } : b));
             alert('Reserva confirmada. Se ha generado la deuda correspondiente.');
         } catch (err) {
             console.error(err);
-            alert('Error confirming booking');
+            alert('Error al confirmar reserva');
         }
     };
 
     const handleCancel = async (id: string) => {
         try {
-            const res = await fetch(`http://localhost:3000/bookings/${id}/cancel`, {
-                method: 'PATCH',
-            });
-            if (!res.ok) throw new Error('Failed to cancel');
-
+            await api.patch(`/bookings/${id}/cancel`, {});
             setBookings(bookings.filter(b => b.id !== id));
             alert('Reserva rechazada.');
         } catch (err) {
             console.error(err);
-            alert('Error cancelling booking');
+            alert('Error al cancelar reserva');
         }
     };
 
@@ -74,7 +68,17 @@ export default function AdminDashboard() {
                         <p style={{ color: 'var(--text-muted)' }}>Gestión de Reservas y Canchas</p>
                     </div>
                 </div>
-                <button className="btn-secondary" onClick={() => window.location.href = '/'}>Volver al Inicio</button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                        className="btn-secondary"
+                        onClick={() => window.location.href = '/admin/users'}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Users size={16} /> Usuarios
+                    </button>
+                    <button className="btn-secondary" onClick={() => window.location.href = '/'}>Volver al Inicio</button>
+                    <button className="btn-secondary" onClick={logout} style={{ color: '#E74C3C' }}>Cerrar Sesión</button>
+                </div>
             </header>
 
             <div className="card glass">

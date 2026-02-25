@@ -1,82 +1,139 @@
-# Tenis Club Management App - Club Belgrano 🎾
+# Club Belgrano - Tennis Court Management System
 
-A comprehensive, modern management system designed for **Club Belgrano** (General Belgrano, BS. AS.) to streamline tennis court bookings, membership management, and automated financial tracking.
+A modern management system for **Club Belgrano** (General Belgrano, Buenos Aires) to handle tennis court bookings, membership management, and financial tracking.
 
-## 🌟 Features
+## Features
 
-### 🎨 Premium UI/UX
-- **Pastel Design System**: Vibrant yet soft aesthetic using brand blue/white and "polvo de ladrillo" clay-orange accents.
-- **Dashboard Layout**: Card-based interface providing immediate visibility into account status, debt, and court availability.
-- **Glassmorphism & Micro-animations**: Modern visual effects for a premium feels.
+### Court Booking (Public)
+- **Interactive Calendar**: 5 clay courts with 90-minute time slots (08:00-20:00), 7-day date selector.
+- **2-Step Booking Flow**:
+  1. Select match type: Individual (2 players) or Dobles (4 players).
+  2. Fill player slots: search registered socios by name/DNI/email, or type a guest name.
+- No login required to browse availability and book a court.
 
-### 📅 Booking System
-- **Interactive Calendar**: 90-minute slot selection grid for the club's 5 clay courts.
-- **Multi-step Booking Form**:
-    - Select Match Type (Single/Double).
-    - Manage Players: Add members or invite guests.
-    - Real-time cost validation.
+### Authentication & User Management
+- **Login**: Email/password authentication via Supabase Auth.
+- **Role-based access**: Admin, Socio, No Socio roles with route protection.
+- **Admin User CRUD**: Create, edit, activate/deactivate users. Search/filter user list. Manage socio membership details (nro_socio, activo).
+- **Trigger-based**: Creating a user in Supabase Auth auto-creates the `usuarios` row with role from metadata.
 
-### 💼 Admin & Finance
-- **Admin Dashboard**: Specialized view for club managers to approve or reject pending requests.
-- **Automated "Cuenta Corriente"**:
-    - Proportional cost splitting between players.
-    - Automatic debt generation upon booking confirmation.
-    - Support for different membership tiers (Abono Libre, Abono x Partidos, No Socio).
+### Admin Panel
+- **Booking Approval**: Admin dashboard to confirm or reject pending reservations.
+- **User Management**: Full CRUD at `/admin/users` with table view, search, and create/edit modals.
+- **Automated Debt**: Confirming a booking generates proportional debt per player based on membership tier.
 
-## 🛠 Tech Stack
+### Membership Tiers
+- Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio — each with different pricing from monthly parameters.
 
-- **Monorepo**: NPM Workspaces.
-- **Frontend**: Vite + React + TypeScript + Vanilla CSS + Lucide Icons.
-- **Backend**: NestJS + TypeScript.
-- **Database**: Supabase (PostgreSQL) with UUID/Gist extensions.
-- **Auth**: Supabase Auth with custom RBAC profiles.
+## Tech Stack
 
-## 📂 Project Structure
+- **Monorepo**: NPM Workspaces
+- **Frontend**: Vite + React 19 + TypeScript + Vanilla CSS (pastel design system) + Lucide Icons
+- **Backend**: NestJS + TypeScript
+- **Database**: Supabase (PostgreSQL) with RLS, triggers, and UUID/GiST extensions
+- **Auth**: Supabase Auth with JWT validation + custom RBAC guards
 
-```text
+## Project Structure
+
+```
 tenis/
-├── backend/            # NestJS API
-│   ├── src/
-│   │   ├── bookings/   # Booking logic & debt engine
-│   │   ├── supabase/   # Client integration
-│   │   └── main.ts     # Entry point
-├── frontend/           # Vite + React UI
-│   ├── src/
-│   │   ├── components/ # Reusable UI pieces (Calendar, Form)
-│   │   ├── pages/      # Main views (Reserve, Admin)
-│   │   ├── types/      # Shared TS interfaces
-│   │   └── index.css   # Global Pastel Design System
-├── docs/               # Requirements and analysis
-└── .agent/             # AI development context & workflows
+├── backend/                   # NestJS API (port 3000, /api prefix)
+│   └── src/
+│       ├── auth/              # Login, register, JWT guard, roles guard
+│       ├── users/             # User CRUD (admin) + public socio search
+│       ├── bookings/          # Booking CRUD + debt engine
+│       └── supabase/          # Supabase client service
+├── frontend/                  # Vite + React UI
+│   └── src/
+│       ├── context/           # AuthContext (login/logout, token mgmt)
+│       ├── components/        # Calendar, BookingForm, ProtectedRoute
+│       ├── pages/             # Login, Reserve, AdminDashboard, AdminUsers
+│       ├── lib/               # API client, Supabase client
+│       └── types/             # TypeScript interfaces
+├── docs/                      # Requirements & implementation plan
+└── package.json               # Workspaces root
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js (v18+)
-- Supabase Account & Project
+- Supabase project with service role key
 
 ### Setup
 
-1. **Install Dependencies**:
+1. **Install dependencies**:
    ```bash
    npm install
    ```
 
-2. **Database Setup**:
-   - Create a project in Supabase.
-   - Run the initial migrations (found in implementation plans) to create tables, triggers, and extensions.
+2. **Configure environment**:
 
-3. **Environment Configuration**:
-   - Create `.env` files in both `backend/` and `frontend/` with your Supabase URL and Key.
+   `backend/.env`:
+   ```
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=your-service-role-key
+   PORT=3000
+   ```
 
-4. **Run Development Mode**:
-   - **Backend**: `cd backend && npm run start:dev`
-   - **Frontend**: `cd frontend && npm run dev`
+   `frontend/.env`:
+   ```
+   VITE_SUPABASE_URL=https://your-project.supabase.co
+   VITE_SUPABASE_ANON_KEY=your-anon-key
+   VITE_API_URL=http://localhost:3000/api
+   ```
 
-## 📄 Documentation
+3. **Run development servers**:
+   ```bash
+   npm run dev:backend          # NestJS on port 3000
+   npm run dev:frontend         # Vite dev server
+   ```
 
-For detailed implementation details, check the brain artifacts:
-- [Implementation Plan](file:///C:/Users/far/.gemini/antigravity/brain/d6601a99-9b9f-4aab-98c9-d9c3dea42805/implementation_plan.md)
-- [Walkthrough](file:///C:/Users/far/.gemini/antigravity/brain/d6601a99-9b9f-4aab-98c9-d9c3dea42805/walkthrough.md)
-- [Task List](file:///C:/Users/far/.gemini/antigravity/brain/d6601a99-9b9f-4aab-98c9-d9c3dea42805/task.md)
+4. **Build for production**:
+   ```bash
+   npm run build --workspace=backend
+   npm run build --workspace=frontend
+   ```
+
+## Routes
+
+| Path | Access | Description |
+|------|--------|-------------|
+| `/` | Public | Court booking calendar and dashboard |
+| `/login` | Public | Login page |
+| `/admin` | Admin only | Booking approval dashboard |
+| `/admin/users` | Admin only | User management CRUD |
+
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/auth/login` | Public | Login |
+| POST | `/api/auth/register` | Public | Register |
+| GET | `/api/auth/me` | JWT | Current user profile |
+| GET | `/api/users/search-socios?q=` | Public | Search socios (for booking form) |
+| GET | `/api/users` | Admin | List all users |
+| POST | `/api/users` | Admin | Create user |
+| PATCH | `/api/users/:id` | Admin | Update user |
+| DELETE | `/api/users/:id` | Admin | Deactivate user |
+| POST | `/api/bookings` | JWT | Create booking |
+| GET | `/api/bookings` | JWT | List bookings |
+| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm + generate debt |
+| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking |
+
+## Database Schema
+
+Key tables in `public` schema:
+- **`usuarios`**: User profiles linked to `auth.users` (nombre, dni, telefono, email, rol, estado)
+- **`socios`**: Membership details (nro_socio, activo) linked to usuarios
+- **`bookings`**: Court reservations (court_id, start/end time, type, status)
+- **`booking_players`**: Players per booking (user_id or guest_name, cost_proportion)
+- **`courts`**: 5 clay courts (name, surface, is_active)
+- **`monthly_parameters`**: Monthly pricing configuration per membership tier
+- **`payments`**: Financial ledger (user_id, amount, booking_id)
+- **`court_blocks`**: Court maintenance/block periods
+
+## Documentation
+
+- [Implementation Plan](docs/implementation-plan.md) — 12-phase roadmap
+- [Requirements Analysis](docs/requirements/) — Feature discovery and constraints

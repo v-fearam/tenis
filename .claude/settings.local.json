@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(git -C /c/dev/tenis log --oneline -5)",
-      "Bash(git -C /c/dev/tenis status --short)"
+      "Bash(git -C /c/dev/tenis status --short)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_project_url",
+      "Bash(npm run build:*)",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__get_logs"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

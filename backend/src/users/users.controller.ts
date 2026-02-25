@@ -17,6 +17,16 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('users')
+export class UsersPublicController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get('search-socios')
+  searchSocios(@Query('q') query: string) {
+    return this.usersService.searchPublic(query || '');
+  }
+}
+
+@Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
