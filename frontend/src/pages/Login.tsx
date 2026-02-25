@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.jpg';
 
@@ -10,6 +10,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get the intended destination from ProtectedRoute's state, or default to '/'
+  const from = (location.state as any)?.from || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +22,8 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate('/');
+      // Redirect to the page they originally tried to access
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     } finally {

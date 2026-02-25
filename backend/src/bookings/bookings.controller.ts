@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/booking.dto';
@@ -17,32 +18,33 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 @Controller('bookings')
 @UseGuards(JwtAuthGuard)
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(private readonly bookingsService: BookingsService) { }
 
   @Post()
   create(
     @Body() createBookingDto: CreateBookingDto,
     @CurrentUser('id') userId: string,
+    @Req() req: any,
   ) {
-    return this.bookingsService.create(createBookingDto, userId);
+    return this.bookingsService.create(createBookingDto, userId, req.accessToken);
   }
 
   @Get()
-  findAll() {
-    return this.bookingsService.findAll();
+  findAll(@Req() req: any) {
+    return this.bookingsService.findAll(req.accessToken);
   }
 
   @Patch(':id/confirm')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  confirm(@Param('id') id: string) {
-    return this.bookingsService.confirm(id);
+  confirm(@Param('id') id: string, @Req() req: any) {
+    return this.bookingsService.confirm(id, req.accessToken);
   }
 
   @Patch(':id/cancel')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  cancel(@Param('id') id: string) {
-    return this.bookingsService.cancel(id);
+  cancel(@Param('id') id: string, @Req() req: any) {
+    return this.bookingsService.cancel(id, req.accessToken);
   }
 }

@@ -69,23 +69,25 @@ export default function Reserve() {
                         <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Gestión de Canchas</p>
                     </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     {user ? (
                         <>
-                            <div className="card-value" style={{ fontSize: '1.2rem' }}>
-                                Hola, {user.nombre || user.email?.split('@')[0] || 'Socio'}!
-                            </div>
-                            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                                {isAdmin && (
-                                    <a
-                                        href="/admin"
-                                        style={{ color: 'var(--clay-orange)', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' }}
-                                    >
-                                        Panel Admin
-                                    </a>
-                                )}
+                            {isAdmin && (
+                                <button
+                                    className="btn-primary"
+                                    onClick={() => window.location.href = '/admin'}
+                                    style={{ background: 'var(--brand-blue)', padding: '10px 20px', fontSize: '0.9rem' }}
+                                >
+                                    Panel Admin
+                                </button>
+                            )}
+                            <div style={{ textAlign: 'right' }}>
+                                <div className="card-value" style={{ fontSize: '1.2rem' }}>
+                                    Hola, {user.nombre || user.email?.split('@')[0] || 'Socio'}!
+                                </div>
                                 <p
-                                    style={{ color: 'var(--brand-blue)', fontWeight: '600', cursor: 'pointer', margin: 0 }}
+                                    style={{ color: 'var(--brand-blue)', fontWeight: '600', cursor: 'pointer', margin: 0, fontSize: '0.9rem' }}
                                     onClick={handleLogout}
                                 >
                                     Cerrar Sesión
@@ -104,9 +106,9 @@ export default function Reserve() {
                 </div>
             </header>
 
-            {/* Header Metrics - only show personal data when logged in */}
+            {/* Header Metrics */}
             {user && (
-                <div className="header-grid">
+                <div className="header-grid" style={{ marginBottom: '40px' }}>
                     <div className="card card-accent-blue">
                         <div className="card-title">Próximo Partido</div>
                         <div className="card-value">Hoy 18:30</div>

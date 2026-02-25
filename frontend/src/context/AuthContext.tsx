@@ -36,6 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let parsedUser: Usuario | null = null;
       try {
         parsedUser = JSON.parse(savedUser);
+        // We set the user but keep loading: true to verify with latest role
+        setState({
+          token: savedToken,
+          user: parsedUser,
+          loading: true,
+        });
       } catch {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
@@ -43,18 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ token: null, user: null, loading: false });
         return;
       }
-      setState({
-        token: savedToken,
-        user: parsedUser,
-        loading: false,
-      });
 
-      // Verify token is still valid by fetching profile
+      // Verify token is still valid by fetching latest profile (including latest rol)
       api.get<Usuario>('/auth/me').then((user) => {
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         setState({ token: savedToken, user, loading: false });
       }).catch(() => {
-        // Token expired
+        // Token expired or server error
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         api.setToken(null);

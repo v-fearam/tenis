@@ -4,7 +4,7 @@ import { LoginDto, RegisterDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   async login(loginDto: LoginDto) {
     const client = this.supabaseService.getClient();
@@ -18,21 +18,31 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Fetch user profile
-    const { data: usuario } = await client
+    // Use the session token to create an authenticated client so RLS works
+    const authClient = this.supabaseService.getAuthenticatedClient(data.session.access_token);
+
+    console.log('Login successful for:', data.user.id);
+
+    const { data: usuario, error: profileError } = await authClient
       .from('usuarios')
       .select('*')
       .eq('id', data.user.id)
       .single();
 
+    const finalUser = {
+      id: data.user.id,
+      email: data.user.email,
+      nombre: data.user.user_metadata?.nombre,
+      rol: data.user.user_metadata?.rol || 'socio',
+      ...usuario,
+    };
+
+    console.log('Final user object being returned:', finalUser);
+
     return {
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
-      user: {
-        id: data.user.id,
-        email: data.user.email,
-        ...usuario,
-      },
+      user: finalUser,
     };
   }
 
@@ -58,8 +68,9 @@ export class AuthService {
     }
 
     // Update additional fields if provided
-    if (data.user && (registerDto.dni || registerDto.telefono)) {
-      await client
+    if (data.user && data.session && (registerDto.dni || registerDto.telefono)) {
+      const authClient = this.supabaseService.getAuthenticatedClient(data.session.access_token);
+      await authClient
         .from('usuarios')
         .update({
           dni: registerDto.dni,
@@ -77,10 +88,11 @@ export class AuthService {
     };
   }
 
-  async getProfile(userId: string) {
-    const client = this.supabaseService.getClient();
+  async getProfile(userId: string, accessToken: string) {
+    // Use authenticated client so RLS auth.uid() resolves correctly
+    const authClient = this.supabaseService.getAuthenticatedClient(accessToken);
 
-    const { data: usuario, error } = await client
+    const { data: usuario, error } = await authClient
       .from('usuarios')
       .select('*, socios(*)')
       .eq('id', userId)

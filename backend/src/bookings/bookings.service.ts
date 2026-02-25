@@ -11,10 +11,10 @@ const DEFAULT_PRICES = {
 
 @Injectable()
 export class BookingsService {
-    constructor(private readonly supabaseService: SupabaseService) {}
+    constructor(private readonly supabaseService: SupabaseService) { }
 
-    async create(createBookingDto: CreateBookingDto, creatorId: string) {
-        const client = this.supabaseService.getClient();
+    async create(createBookingDto: CreateBookingDto, creatorId: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
         const { data: booking, error: bookingError } = await client
             .from('bookings')
@@ -47,8 +47,8 @@ export class BookingsService {
         return booking;
     }
 
-    async findAll() {
-        const client = this.supabaseService.getClient();
+    async findAll(accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
         const { data, error } = await client
             .from('bookings')
             .select('*, courts(*), booking_players(*)')
@@ -57,11 +57,11 @@ export class BookingsService {
         return data;
     }
 
-    async confirm(bookingId: string) {
-        const client = this.supabaseService.getClient();
+    async confirm(bookingId: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
-        const booking = await this.findBookingWithPlayers(bookingId);
-        const prices = await this.getMonthlyPrices(booking.start_time);
+        const booking = await this.findBookingWithPlayers(bookingId, accessToken);
+        const prices = await this.getMonthlyPrices(booking.start_time, accessToken);
 
         // Update booking status
         const { error: updateError } = await client
@@ -72,13 +72,13 @@ export class BookingsService {
         if (updateError) throw updateError;
 
         // Generate debt for each player
-        await this.generatePlayerDebts(booking, prices);
+        await this.generatePlayerDebts(booking, prices, accessToken);
 
         return booking;
     }
 
-    async cancel(bookingId: string) {
-        const client = this.supabaseService.getClient();
+    async cancel(bookingId: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
         const { data: booking, error: fetchError } = await client
             .from('bookings')
@@ -100,8 +100,8 @@ export class BookingsService {
         return { id: bookingId, status: BookingStatus.CANCELLED };
     }
 
-    private async findBookingWithPlayers(bookingId: string) {
-        const client = this.supabaseService.getClient();
+    private async findBookingWithPlayers(bookingId: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
         const { data: booking, error } = await client
             .from('bookings')
@@ -116,8 +116,8 @@ export class BookingsService {
         return booking;
     }
 
-    private async getMonthlyPrices(startTime: string) {
-        const client = this.supabaseService.getClient();
+    private async getMonthlyPrices(startTime: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
         const monthStart = new Date(startTime).toISOString().slice(0, 7) + '-01';
 
         const { data: params } = await client
@@ -129,12 +129,12 @@ export class BookingsService {
         return params || DEFAULT_PRICES;
     }
 
-    private async generatePlayerDebts(booking: any, prices: any) {
-        const client = this.supabaseService.getClient();
+    private async generatePlayerDebts(booking: any, prices: any, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
         const numPlayers = booking.booking_players.length;
 
         for (const player of booking.booking_players) {
-            const cost = await this.calculatePlayerCost(player, prices);
+            const cost = await this.calculatePlayerCost(player, prices, accessToken);
             const proportionalCost = cost / numPlayers;
 
             if (proportionalCost > 0 && player.user_id) {
@@ -148,12 +148,12 @@ export class BookingsService {
         }
     }
 
-    private async calculatePlayerCost(player: any, prices: any): Promise<number> {
+    private async calculatePlayerCost(player: any, prices: any, accessToken: string): Promise<number> {
         if (!player.user_id) {
             return prices.price_no_socio;
         }
 
-        const client = this.supabaseService.getClient();
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
         const { data: usuario } = await client
             .from('usuarios')
             .select('*, socios(*)')

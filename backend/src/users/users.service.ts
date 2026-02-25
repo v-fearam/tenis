@@ -8,14 +8,14 @@ import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   private sanitizeFilter(input: string): string {
-    return input.replace(/[%_\\(),."']/g, '');
+    return input.replace(/[%_\\(),.\"']/g, '');
   }
 
-  async findAll() {
-    const client = this.supabaseService.getClient();
+  async findAll(accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
     const { data, error } = await client
       .from('usuarios')
       .select('*, socios(*)')
@@ -25,8 +25,18 @@ export class UsersService {
     return data;
   }
 
-  async findOne(id: string) {
-    const client = this.supabaseService.getClient();
+  async count(accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const { count, error } = await client
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) throw error;
+    return { count: count || 0 };
+  }
+
+  async findOne(id: string, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
     const { data, error } = await client
       .from('usuarios')
       .select('*, socios(*)')
@@ -38,6 +48,7 @@ export class UsersService {
   }
 
   async searchPublic(query: string) {
+    // Public searches use the default client (no auth needed, RLS allows it)
     const client = this.supabaseService.getClient();
     const { data, error } = await client
       .from('usuarios')
@@ -53,8 +64,8 @@ export class UsersService {
     return data;
   }
 
-  async search(query: string) {
-    const client = this.supabaseService.getClient();
+  async search(query: string, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
     const { data, error } = await client
       .from('usuarios')
       .select('*, socios(*)')
@@ -88,7 +99,9 @@ export class UsersService {
       throw authError;
     }
 
-    // Update additional fields
+    // Update additional fields — we need a workaround since we don't have a user token yet
+    // The admin.createUser doesn't give us a session, so we use the default client
+    // and rely on the trigger having already created the row
     if (createUserDto.dni || createUserDto.telefono) {
       await client
         .from('usuarios')
@@ -108,14 +121,18 @@ export class UsersService {
       });
     }
 
-    return this.findOne(authData.user.id);
+    // Return the created user (use admin client for the read)
+    const { data: newUser } = await client
+      .from('usuarios')
+      .select('*, socios(*)')
+      .eq('id', authData.user.id)
+      .single();
+
+    return newUser;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
-    const client = this.supabaseService.getClient();
-
-    // Verify user exists
-    await this.findOne(id);
+  async update(id: string, updateUserDto: UpdateUserDto, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
     const { data, error } = await client
       .from('usuarios')
@@ -131,8 +148,8 @@ export class UsersService {
     return data;
   }
 
-  async updateSocio(userId: string, updateSocioDto: UpdateSocioDto) {
-    const client = this.supabaseService.getClient();
+  async updateSocio(userId: string, updateSocioDto: UpdateSocioDto, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
     const { data: existing } = await client
       .from('socios')
@@ -141,7 +158,6 @@ export class UsersService {
       .single();
 
     if (!existing) {
-      // Create socio record if it doesn't exist
       const { data, error } = await client
         .from('socios')
         .insert({
@@ -168,10 +184,9 @@ export class UsersService {
     return data;
   }
 
-  async remove(id: string) {
-    const client = this.supabaseService.getClient();
+  async remove(id: string, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
-    // Soft delete: set estado to inactivo
     const { error } = await client
       .from('usuarios')
       .update({ estado: 'inactivo', updated_at: new Date().toISOString() })

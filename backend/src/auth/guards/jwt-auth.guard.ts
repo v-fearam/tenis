@@ -12,7 +12,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly configService: ConfigService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -25,6 +25,7 @@ export class JwtAuthGuard implements CanActivate {
     const token = authHeader.split(' ')[1];
 
     try {
+      // Verify the token with Supabase Auth
       const client = this.supabaseService.getClient();
       const {
         data: { user },
@@ -35,8 +36,9 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Token inválido o expirado');
       }
 
-      // Fetch user profile from usuarios table
-      const { data: usuario, error: profileError } = await client
+      // Use an authenticated client (with user's JWT) so RLS auth.uid() works
+      const authClient = this.supabaseService.getAuthenticatedClient(token);
+      const { data: usuario, error: profileError } = await authClient
         .from('usuarios')
         .select('*')
         .eq('id', user.id)
@@ -46,11 +48,13 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Perfil de usuario no encontrado');
       }
 
+      // Attach user data and token to request for downstream use
       request.user = {
         id: user.id,
         email: user.email,
         ...usuario,
       };
+      request.accessToken = token;
 
       return true;
     } catch (err) {

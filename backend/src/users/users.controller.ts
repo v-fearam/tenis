@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
@@ -18,7 +19,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('users')
 export class UsersPublicController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get('search-socios')
   searchSocios(@Query('q') query: string) {
@@ -29,32 +30,39 @@ export class UsersPublicController {
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get('me')
-  getMe(@CurrentUser('id') userId: string) {
-    return this.usersService.findOne(userId);
+  getMe(@CurrentUser('id') userId: string, @Req() req: any) {
+    return this.usersService.findOne(userId, req.accessToken);
+  }
+
+  @Get('count')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  getCount(@Req() req: any) {
+    return this.usersService.count(req.accessToken);
   }
 
   @Get('search')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  search(@Query('q') query: string) {
-    return this.usersService.search(query || '');
+  search(@Query('q') query: string, @Req() req: any) {
+    return this.usersService.search(query || '', req.accessToken);
   }
 
   @Get()
   @UseGuards(RolesGuard)
   @Roles('admin')
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Req() req: any) {
+    return this.usersService.findAll(req.accessToken);
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.usersService.findOne(id, req.accessToken);
   }
 
   @Post()
@@ -67,8 +75,8 @@ export class UsersController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() req: any) {
+    return this.usersService.update(id, updateUserDto, req.accessToken);
   }
 
   @Patch(':id/socio')
@@ -77,14 +85,15 @@ export class UsersController {
   updateSocio(
     @Param('id') userId: string,
     @Body() updateSocioDto: UpdateSocioDto,
+    @Req() req: any,
   ) {
-    return this.usersService.updateSocio(userId, updateSocioDto);
+    return this.usersService.updateSocio(userId, updateSocioDto, req.accessToken);
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  remove(@Param('id') id: string, @Req() req: any) {
+    return this.usersService.remove(id, req.accessToken);
   }
 }
