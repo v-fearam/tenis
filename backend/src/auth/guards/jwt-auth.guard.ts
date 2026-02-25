@@ -36,11 +36,15 @@ export class JwtAuthGuard implements CanActivate {
       }
 
       // Fetch user profile from usuarios table
-      const { data: usuario } = await client
+      const { data: usuario, error: profileError } = await client
         .from('usuarios')
         .select('*')
         .eq('id', user.id)
         .single();
+
+      if (profileError || !usuario) {
+        throw new UnauthorizedException('Perfil de usuario no encontrado');
+      }
 
       request.user = {
         id: user.id,

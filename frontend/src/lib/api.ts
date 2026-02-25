@@ -1,5 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 class ApiClient {
   private token: string | null = null;
 
@@ -24,9 +33,8 @@ class ApiClient {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      const error = new Error(body.message || `Error ${res.status}`);
-      (error as any).status = res.status;
-      throw error;
+      const message = Array.isArray(body.message) ? body.message[0] : body.message;
+      throw new ApiError(message || `Error ${res.status}`, res.status);
     }
 
     if (res.status === 204) return undefined as T;

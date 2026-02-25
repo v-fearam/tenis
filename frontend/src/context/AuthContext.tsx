@@ -33,9 +33,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (savedToken && savedUser) {
       api.setToken(savedToken);
+      let parsedUser: Usuario | null = null;
+      try {
+        parsedUser = JSON.parse(savedUser);
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        api.setToken(null);
+        setState({ token: null, user: null, loading: false });
+        return;
+      }
       setState({
         token: savedToken,
-        user: JSON.parse(savedUser),
+        user: parsedUser,
         loading: false,
       });
 

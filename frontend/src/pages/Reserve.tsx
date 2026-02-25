@@ -3,23 +3,42 @@ import Calendar from '../components/Calendar';
 import BookingForm from '../components/BookingForm';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import '../index.css';
 import logo from '../assets/logo.jpg';
+
+interface Player {
+    user_id?: string;
+    guest_name?: string;
+    is_organizer: boolean;
+}
 
 export default function Reserve() {
     const [bookingData, setBookingData] = useState<{ courtId: number; slot: string } | null>(null);
     const { user, isAdmin, logout } = useAuth();
 
-    const handleSubmitBooking = async (details: { type: MatchType; players: any[] }) => {
+    const handleSubmitBooking = async (details: { type: MatchType; players: Player[] }) => {
         if (!bookingData) return;
 
+        const startTime = new Date(bookingData.slot);
+        const endTime = new Date(startTime.getTime() + 90 * 60 * 1000);
+
         try {
-            console.log('Submitting booking...', { ...bookingData, ...details });
+            await api.post('/bookings', {
+                court_id: bookingData.courtId,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                type: details.type,
+                players: details.players.map((p) => ({
+                    user_id: p.user_id || undefined,
+                    guest_name: p.guest_name || undefined,
+                    is_organizer: p.is_organizer,
+                })),
+            });
             alert('Reserva enviada exitosamente. Pendiente de confirmación por el administrador.');
             setBookingData(null);
-        } catch (error) {
-            console.error('Error submitting booking:', error);
-            alert('Error al procesar la reserva. Intente nuevamente.');
+        } catch (error: any) {
+            alert(error.message || 'Error al procesar la reserva. Intente nuevamente.');
         }
     };
 

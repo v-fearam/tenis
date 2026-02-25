@@ -27,31 +27,15 @@ export default function Login() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'linear-gradient(135deg, var(--brand-blue-pastel) 0%, var(--bg-main) 50%, var(--clay-orange-pastel) 100%)',
-      padding: '20px',
-    }}>
-      <div className="card" style={{
-        width: '100%',
-        maxWidth: '420px',
-        padding: '40px',
-        textAlign: 'center',
-      }}>
+    <div className="login-page">
+      <div className="card" style={{ width: '100%', maxWidth: '420px', padding: '40px', textAlign: 'center' }}>
         <img
           src={logo}
           alt="Club Belgrano"
           style={{
-            width: '100px',
-            height: '100px',
-            borderRadius: '50%',
-            objectFit: 'cover',
-            border: '4px solid var(--brand-blue-pastel)',
-            margin: '0 auto 20px',
-            display: 'block',
+            width: '100px', height: '100px', borderRadius: '50%',
+            objectFit: 'cover', border: '4px solid var(--brand-blue-pastel)',
+            margin: '0 auto 20px', display: 'block',
           }}
         />
         <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.5rem', fontWeight: '800', marginBottom: '4px' }}>
@@ -62,81 +46,29 @@ export default function Login() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          {error && (
-            <div style={{
-              background: '#FADBD8',
-              color: '#E74C3C',
-              padding: '12px',
-              borderRadius: 'var(--radius-sm)',
-              marginBottom: '16px',
-              fontSize: '0.875rem',
-              fontWeight: '500',
-            }}>
-              {error}
-            </div>
-          )}
+          {error && <div className="alert-error">{error}</div>}
 
           <div style={{ marginBottom: '16px', textAlign: 'left' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              marginBottom: '6px',
-            }}>
-              Email
-            </label>
+            <label className="form-label">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="tu@email.com"
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                fontSize: '1rem',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box',
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--brand-blue)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+              className="form-input"
             />
           </div>
 
           <div style={{ marginBottom: '24px', textAlign: 'left' }}>
-            <label style={{
-              display: 'block',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              color: 'var(--text-muted)',
-              textTransform: 'uppercase',
-              marginBottom: '6px',
-            }}>
-              Contraseña
-            </label>
+            <label className="form-label">Contraseña</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="••••••"
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border)',
-                fontSize: '1rem',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box',
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'var(--brand-blue)'}
-              onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+              className="form-input"
             />
           </div>
 
@@ -145,9 +77,7 @@ export default function Login() {
             className="btn-primary"
             disabled={loading}
             style={{
-              width: '100%',
-              padding: '14px',
-              fontSize: '1rem',
+              width: '100%', padding: '14px', fontSize: '1rem',
               opacity: loading ? 0.7 : 1,
               cursor: loading ? 'not-allowed' : 'pointer',
             }}

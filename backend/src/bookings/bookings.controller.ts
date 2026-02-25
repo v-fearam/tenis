@@ -40,7 +40,9 @@ export class BookingsController {
   }
 
   @Patch(':id/cancel')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
   cancel(@Param('id') id: string) {
-    return { id, status: 'cancelled' };
+    return this.bookingsService.cancel(id);
   }
 }

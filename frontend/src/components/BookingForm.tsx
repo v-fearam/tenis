@@ -63,13 +63,13 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   if (!matchType) {
     return (
       <Overlay>
-        <div className="card" style={{ width: '100%', maxWidth: '460px', animation: 'slideUp 0.3s ease-out' }}>
+        <div className="card animate-slide-up" style={{ width: '100%', maxWidth: '460px' }}>
           <h2 style={{ marginBottom: '8px', color: 'var(--brand-blue)' }}>Nueva Reserva</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px', fontSize: '0.9rem' }}>
             Cancha {courtId} &bull; {slot} hs
           </p>
 
-          <label style={labelStyle}>Tipo de Partido</label>
+          <label className="form-label" style={{ marginBottom: '10px' }}>Tipo de Partido</label>
           <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
             <TypeCard
               selected={false}
@@ -91,7 +91,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
             Cancelar
           </button>
         </div>
-        <SlideUpKeyframes />
       </Overlay>
     );
   }
@@ -99,7 +98,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   // Step 2: Fill players
   return (
     <Overlay>
-      <div className="card" style={{ width: '100%', maxWidth: '520px', animation: 'slideUp 0.3s ease-out' }}>
+      <div className="card animate-slide-up" style={{ width: '100%', maxWidth: '520px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <h2 style={{ color: 'var(--brand-blue)' }}>Jugadores</h2>
           <span style={{
@@ -154,7 +153,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
           </button>
         </div>
       </div>
-      <SlideUpKeyframes />
     </Overlay>
   );
 }
@@ -163,25 +161,9 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, padding: '20px',
-    }}>
+    <div className="overlay">
       {children}
     </div>
-  );
-}
-
-function SlideUpKeyframes() {
-  return (
-    <style>{`
-      @keyframes slideUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-    `}</style>
   );
 }
 
@@ -455,11 +437,3 @@ function PlayerEditor({ index, onSelect, onCancel }: {
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '0.8rem',
-  fontWeight: '600',
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  marginBottom: '10px',
-};

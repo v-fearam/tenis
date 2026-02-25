@@ -25,7 +25,7 @@
   --radius-lg: 24px;
   --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.02);
   --shadow-md: 0 10px 15px rgba(0, 0, 0, 0.03);
-  --shadow-lg: 0 20px-25px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 25px rgba(0, 0, 0, 0.05);
 
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -121,4 +121,81 @@ body {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Form Elements */
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  border-color: var(--brand-blue);
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+/* Overlay / Modal backdrop */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+/* Alert boxes */
+.alert-error {
+  background: #FADBD8;
+  color: #E74C3C;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Badge */
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Login page */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--brand-blue-pastel) 0%, var(--bg-main) 50%, var(--clay-orange-pastel) 100%);
+  padding: 20px;
+}
+
+/* Animation */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
 }

@@ -10,6 +10,10 @@ import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
 export class UsersService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  private sanitizeFilter(input: string): string {
+    return input.replace(/[%_\\(),."']/g, '');
+  }
+
   async findAll() {
     const client = this.supabaseService.getClient();
     const { data, error } = await client
@@ -40,7 +44,7 @@ export class UsersService {
       .select('id, nombre, email, dni')
       .eq('estado', 'activo')
       .or(
-        `nombre.ilike.%${query}%,dni.ilike.%${query}%,email.ilike.%${query}%`,
+        `nombre.ilike.%${this.sanitizeFilter(query)}%,dni.ilike.%${this.sanitizeFilter(query)}%,email.ilike.%${this.sanitizeFilter(query)}%`,
       )
       .order('nombre')
       .limit(10);
@@ -54,7 +58,7 @@ export class UsersService {
     const { data, error } = await client
       .from('usuarios')
       .select('*, socios(*)')
-      .or(`nombre.ilike.%${query}%,dni.ilike.%${query}%,telefono.ilike.%${query}%,email.ilike.%${query}%`)
+      .or(`nombre.ilike.%${this.sanitizeFilter(query)}%,dni.ilike.%${this.sanitizeFilter(query)}%,telefono.ilike.%${this.sanitizeFilter(query)}%,email.ilike.%${this.sanitizeFilter(query)}%`)
       .order('nombre')
       .limit(20);
 
