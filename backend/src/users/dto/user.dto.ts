@@ -20,7 +20,7 @@ export class UpdateUserDto {
   telefono?: string;
 
   @IsOptional()
-  @IsIn(['admin', 'socio'])
+  @IsIn(['admin', 'socio', 'no-socio'])
   rol?: string;
 
   @IsOptional()
@@ -57,6 +57,6 @@ export class CreateUserDto {
   telefono?: string;
 
   @IsOptional()
-  @IsIn(['admin', 'socio'])
+  @IsIn(['admin', 'socio', 'no-socio'])
   rol?: string;
 }

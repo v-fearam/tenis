@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
 import { Search, Plus, Edit2, X, ArrowLeft, UserCheck, UserX } from 'lucide-react';
+import { Toast, type ToastType } from '../components/Toast';
 
 type ModalMode = 'create' | 'edit' | null;
 
@@ -15,6 +16,7 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -43,10 +45,10 @@ export default function AdminUsers() {
 
   const filteredUsers = searchQuery
     ? users.filter((u) =>
-        [u.nombre, u.email, u.dni, u.telefono]
-          .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
+      [u.nombre, u.email, u.dni, u.telefono]
+        .filter(Boolean)
+        .some((field) => field!.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
     : users;
 
   const openCreateModal = () => {
@@ -115,7 +117,7 @@ export default function AdminUsers() {
       await api.delete(`/users/${user.id}`);
       await fetchUsers();
     } catch (err: any) {
-      alert(err.message || 'Error al desactivar usuario');
+      setToast({ message: err.message || 'Error al desactivar usuario', type: 'error' });
     }
   };
 
@@ -124,7 +126,7 @@ export default function AdminUsers() {
       await api.patch(`/users/${user.id}`, { estado: 'activo' });
       await fetchUsers();
     } catch (err: any) {
-      alert(err.message || 'Error al reactivar usuario');
+      setToast({ message: err.message || 'Error al reactivar usuario', type: 'error' });
     }
   };
 
@@ -150,6 +152,13 @@ export default function AdminUsers() {
 
   return (
     <div className="container">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       {/* Header */}
       <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

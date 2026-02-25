@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Calendar from '../components/Calendar';
 import BookingForm from '../components/BookingForm';
+import { Toast, type ToastType } from '../components/Toast';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -15,6 +16,7 @@ interface Player {
 
 export default function Reserve() {
     const [bookingData, setBookingData] = useState<{ courtId: number; slot: string } | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const { user, isAdmin, logout } = useAuth();
 
     const handleSubmitBooking = async (details: { type: MatchType; players: Player[] }) => {
@@ -35,10 +37,16 @@ export default function Reserve() {
                     is_organizer: p.is_organizer,
                 })),
             });
-            alert('Reserva enviada exitosamente. Pendiente de confirmación por el administrador.');
+            setToast({
+                message: 'Reserva enviada exitosamente. Pendiente de confirmación.',
+                type: 'success'
+            });
             setBookingData(null);
         } catch (error: any) {
-            alert(error.message || 'Error al procesar la reserva. Intente nuevamente.');
+            setToast({
+                message: error.message || 'Error al procesar la reserva. Intente nuevamente.',
+                type: 'error'
+            });
         }
     };
 
@@ -48,6 +56,13 @@ export default function Reserve() {
 
     return (
         <div className="container">
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
             {bookingData && (
                 <BookingForm
                     courtId={bookingData.courtId}

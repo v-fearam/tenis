@@ -27,6 +27,7 @@ export default function AdminDashboard() {
         revenue: '$45.200'
     });
     const [loading, setLoading] = useState(true);
+    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -62,9 +63,9 @@ export default function AdminDashboard() {
                 pendingConfirmations: prev.pendingConfirmations - 1,
                 activeBookings: prev.activeBookings + 1
             }));
-            alert('Reserva confirmada.');
+            setToast({ message: 'Reserva confirmada.', type: 'success' });
         } catch (err) {
-            alert('Error al confirmar reserva');
+            setToast({ message: 'Error al confirmar reserva', type: 'error' });
         }
     };
 
@@ -76,9 +77,9 @@ export default function AdminDashboard() {
                 ...prev,
                 pendingConfirmations: prev.pendingConfirmations - 1
             }));
-            alert('Reserva rechazada.');
+            setToast({ message: 'Reserva rechazada.', type: 'success' });
         } catch (err) {
-            alert('Error al cancelar reserva');
+            setToast({ message: 'Error al cancelar reserva', type: 'error' });
         }
     };
 
@@ -93,6 +94,13 @@ export default function AdminDashboard() {
 
     return (
         <div className="container">
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
             <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <img
