@@ -16,11 +16,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('bookings')
-@UseGuards(JwtAuthGuard)
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) { }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(
     @Body() createBookingDto: CreateBookingDto,
     @CurrentUser('id') userId: string,
@@ -31,7 +31,12 @@ export class BookingsController {
 
   @Get()
   findAll(@Req() req: any) {
-    return this.bookingsService.findAll(req.accessToken);
+    return this.bookingsService.findAll(req?.accessToken);
+  }
+
+  @Get('courts')
+  findCourts(@Req() req: any) {
+    return this.bookingsService.findAllCourts(req?.accessToken);
   }
 
   @Patch(':id/confirm')

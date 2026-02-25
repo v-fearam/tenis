@@ -62,6 +62,7 @@ export default function Login() {
               required
               placeholder="tu@email.com"
               className="form-input"
+              autoComplete="email"
             />
           </div>
 
@@ -74,6 +75,7 @@ export default function Login() {
               required
               placeholder="••••••"
               className="form-input"
+              autoComplete="current-password"
             />
           </div>
 

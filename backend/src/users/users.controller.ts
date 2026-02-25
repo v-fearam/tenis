@@ -37,6 +37,11 @@ export class UsersController {
     return this.usersService.findOne(userId, req.accessToken);
   }
 
+  @Get('me/dashboard')
+  getDashboard(@CurrentUser('id') userId: string, @Req() req: any) {
+    return this.usersService.getDashboardData(userId, req.accessToken);
+  }
+
   @Get('count')
   @UseGuards(RolesGuard)
   @Roles('admin')

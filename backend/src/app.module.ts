@@ -6,6 +6,10 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { ConfigSistemaModule } from './config/config.module';
+import { BloqueosModule } from './bloqueos/bloqueos.module';
+import { CanchasModule } from './canchas/canchas.module';
+import { AbonosModule } from './abonos/abonos.module';
 
 @Module({
   imports: [
@@ -17,8 +21,12 @@ import { BookingsModule } from './bookings/bookings.module';
     AuthModule,
     UsersModule,
     BookingsModule,
+    ConfigSistemaModule,
+    BloqueosModule,
+    CanchasModule,
+    AbonosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

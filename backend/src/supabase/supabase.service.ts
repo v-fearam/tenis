@@ -28,6 +28,17 @@ export class SupabaseService {
    * Returns a Supabase client authenticated with the user's JWT.
    * This allows RLS policies using auth.uid() to work correctly.
    */
+  /**
+   * Returns a Supabase client authenticated with the user's JWT if provided,
+   * otherwise returns the public client.
+   */
+  getOptionalClient(accessToken?: string): SupabaseClient {
+    if (accessToken) {
+      return this.getAuthenticatedClient(accessToken);
+    }
+    return this.getClient();
+  }
+
   getAuthenticatedClient(accessToken: string): SupabaseClient {
     return createClient(this.supabaseUrl, this.supabaseKey, {
       global: {

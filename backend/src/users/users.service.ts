@@ -195,4 +195,49 @@ export class UsersService {
     if (error) throw error;
     return { message: 'Usuario desactivado' };
   }
+
+  async getDashboardData(userId: string, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const now = new Date().toISOString();
+
+    // 1. Fetch next match
+    const { data: turnos, error: turnosError } = await client
+      .from('turnos')
+      .select(`
+        id,
+        fecha,
+        hora_inicio,
+        type:tipo_partido,
+        canchas:id_cancha (nombre),
+        turno_jugadores!inner (id_persona)
+      `)
+      .eq('turno_jugadores.id_persona', userId)
+      .eq('estado', 'confirmado')
+      .or(`fecha.gt.${now.split('T')[0]},and(fecha.eq.${now.split('T')[0]},hora_inicio.gte.${new Date().toTimeString().split(' ')[0]})`)
+      .order('fecha', { ascending: true })
+      .order('hora_inicio', { ascending: true })
+      .limit(1);
+
+    if (turnosError) throw turnosError;
+    const nextMatch = turnos?.[0] || null;
+
+    // 2. Fetch membership
+    const { data: socio, error: socioError } = await client
+      .from('socios')
+      .select(`
+        *,
+        abonos (*)
+      `)
+      .eq('id_usuario', userId)
+      .eq('abonos.activo', true)
+      .single();
+
+    // It's possible the user is not a socio or doesn't have an active abono
+    const abono = socio?.abonos?.[0] || null;
+
+    return {
+      nextMatch,
+      abono,
+    };
+  }
 }

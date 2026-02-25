@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Calendar from '../components/Calendar';
 import BookingForm from '../components/BookingForm';
 import { Toast, type ToastType } from '../components/Toast';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+import { Calendar as CalendarIcon, Wallet, CreditCard, ChevronRight, LayoutGrid } from 'lucide-react';
 import '../index.css';
 import logo from '../assets/logo.jpg';
 
@@ -14,16 +15,60 @@ interface Player {
     is_organizer: boolean;
 }
 
+interface DashboardData {
+    nextMatch: {
+        id: string;
+        fecha: string;
+        hora_inicio: string;
+        type: string;
+        canchas: { nombre: string };
+    } | null;
+    abono: {
+        tipo: string;
+        creditos_totales: number;
+        creditos_disponibles: number;
+    } | null;
+}
+
 export default function Reserve() {
     const [bookingData, setBookingData] = useState<{ courtId: number; slot: string } | null>(null);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const { user, isAdmin, logout } = useAuth();
+    const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3 });
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const cfg = await api.get<{ clave: string; valor: string }[]>('/config');
+                const duracion_bloque = parseInt(cfg.find(c => c.clave === 'duracion_bloque')?.valor || '30');
+                const bloques_por_turno = parseInt(cfg.find(c => c.clave === 'bloques_por_turno')?.valor || '3');
+                setConfig({ blockDuration: duracion_bloque, blocksPerTurn: bloques_por_turno });
+            } catch (e) {
+                console.error('Error fetching config in Reserve');
+            }
+        };
+
+        const fetchDashboard = async () => {
+            if (!user) return;
+            try {
+                const data = await api.get<DashboardData>('/users/me/dashboard');
+                setDashboard(data);
+            } catch (e) {
+                console.error('Error fetching dashboard data');
+            }
+        };
+
+        fetchConfig();
+        fetchDashboard();
+    }, [user, refreshKey]);
 
     const handleSubmitBooking = async (details: { type: MatchType; players: Player[] }) => {
         if (!bookingData) return;
 
         const startTime = new Date(bookingData.slot);
-        const endTime = new Date(startTime.getTime() + 90 * 60 * 1000);
+        const endTime = new Date(startTime.getTime() + (config.blockDuration * config.blocksPerTurn) * 60 * 1000);
 
         try {
             await api.post('/bookings', {
@@ -42,6 +87,7 @@ export default function Reserve() {
                 type: 'success'
             });
             setBookingData(null);
+            setRefreshKey(prev => prev + 1);
         } catch (error: any) {
             setToast({
                 message: error.message || 'Error al procesar la reserva. Intente nuevamente.',
@@ -122,70 +168,106 @@ export default function Reserve() {
             </header>
 
             {/* Header Metrics */}
+            {/* Dashboard Header Bento Grid */}
             {user && (
-                <div className="header-grid" style={{ marginBottom: '40px' }}>
-                    <div className="card card-accent-blue">
-                        <div className="card-title">Próximo Partido</div>
-                        <div className="card-value">Hoy 18:30</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>Cancha 2 • Dobles</p>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gridAutoRows: 'minmax(160px, auto)',
+                    gap: '20px',
+                    marginBottom: '40px'
+                }}>
+                    {/* Next Match - Larger (2 columns) */}
+                    <div className="card card-accent-blue" style={{ gridColumn: 'span 2' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div className="card-title">Próximo Partido</div>
+                            <CalendarIcon size={18} style={{ color: 'var(--brand-blue)' }} />
+                        </div>
+                        {dashboard?.nextMatch ? (
+                            <>
+                                <div className="card-value" style={{ fontSize: '2rem' }}>
+                                    {(() => {
+                                        const [year, month, day] = dashboard.nextMatch.fecha.split('-').map(Number);
+                                        const date = new Date(year, month - 1, day);
+                                        return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+                                    })()} • {dashboard.nextMatch.hora_inicio.slice(0, 5)} hs
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                                    <div className="badge" style={{ background: 'var(--brand-blue-pastel)', color: 'var(--brand-blue)' }}>
+                                        {dashboard.nextMatch.canchas.nombre}
+                                    </div>
+                                    <div className="badge" style={{ background: 'var(--bg-main)', color: 'var(--text-muted)' }}>
+                                        {dashboard.nextMatch.type === 'single' ? 'Singles' : 'Dobles'}
+                                    </div>
+                                </div>
+                            </>
+                        ) : (
+                            <div className="card-value" style={{ fontSize: '1.1rem', color: 'var(--text-muted)', paddingTop: '12px' }}>
+                                No tienes partidos programados para hoy o el futuro.
+                            </div>
+                        )}
                     </div>
+
+                    {/* Balance */}
                     <div className="card card-accent-orange">
-                        <div className="card-title">Cuenta Corriente</div>
-                        <div className="card-value" style={{ color: '#E74C3C' }}>$2.500 SAR</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>Deuda pendiente</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div className="card-title">Cuenta Corriente</div>
+                            <Wallet size={18} style={{ color: '#27AE60' }} />
+                        </div>
+                        <div className="card-value" style={{ color: '#27AE60' }}>$0 <span style={{ fontSize: '1rem' }}>SAR</span></div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>Tu cuenta está al día</p>
                     </div>
+
+                    {/* Abono */}
                     <div className="card card-accent-blue">
-                        <div className="card-title">Abono Restante</div>
-                        <div className="card-value">5 / 10</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>Partidos mens. disponibles</p>
-                    </div>
-                    <div className="card card-accent-orange">
-                        <div className="card-title">Canchas Libres</div>
-                        <div className="card-value">3 / 5</div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>Disponibles ahora</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div className="card-title">Abono Restante</div>
+                            <CreditCard size={18} style={{ color: 'var(--brand-blue)' }} />
+                        </div>
+                        {dashboard?.abono ? (
+                            <>
+                                <div className="card-value">
+                                    {dashboard.abono.tipo === 'libre' ? '∞' : `${dashboard.abono.creditos_disponibles} / ${dashboard.abono.creditos_totales}`}
+                                </div>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>
+                                    Plan {dashboard.abono.tipo.toUpperCase()} activo
+                                </p>
+                            </>
+                        ) : (
+                            <div className="card-value" style={{ fontSize: '1.1rem', color: 'var(--text-muted)', paddingTop: '12px' }}>
+                                Sin abono activo
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
 
-            <main style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '30px' }}>
+            <main className="animate-slide-up">
+                {!user && (
+                    <div className="card glass" style={{ marginBottom: '32px', maxWidth: '400px', borderLeft: '4px solid var(--brand-blue)' }}>
+                        <h3 style={{ marginBottom: '12px', fontSize: '1.25rem', fontWeight: '800' }}>Bienvenido</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '20px' }}>
+                            Iniciá sesión para gestionar tus reservas y acceder a beneficios exclusivos.
+                        </p>
+                        <a href="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                            Iniciar Sesión <ChevronRight size={18} />
+                        </a>
+                    </div>
+                )}
+
                 <section>
                     <div className="card glass" style={{ minHeight: '500px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Reservar Cancha</h2>
                         </div>
 
-                        <Calendar onConfirm={(courtId, slot) => setBookingData({ courtId, slot })} />
+                        <Calendar
+                            onConfirm={(courtId, slot) => setBookingData({ courtId, slot })}
+                            refreshKey={refreshKey}
+                        />
                     </div>
                 </section>
-
-                <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {user ? (
-                        <div className="card">
-                            <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Accesos Rápidos</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '500' }}>→ Mis Facturas</div>
-                                <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '500' }}>→ Cargar Créditos</div>
-                                <div style={{ padding: '12px', background: 'var(--bg-main)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: '500' }}>→ Reglamento del Club</div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="card">
-                            <h3 style={{ marginBottom: '12px', fontSize: '1.1rem' }}>Bienvenido</h3>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '16px' }}>
-                                Iniciá sesión para ver tus partidos, cuenta corriente y abonos.
-                            </p>
-                            <a href="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'inline-block' }}>
-                                Iniciar Sesión
-                            </a>
-                        </div>
-                    )}
-
-                    <div className="card" style={{ background: 'var(--clay-orange-pastel)', borderColor: 'transparent' }}>
-                        <h3 style={{ color: '#A04000', marginBottom: '8px' }}>Estado del Polvo</h3>
-                        <p style={{ color: '#BA4A00', fontSize: '0.9rem' }}>Las canchas 1 y 2 se encuentran en mantenimiento por riego hasta las 17:00 hs.</p>
-                    </div>
-                </aside>
             </main>
-        </div>
+        </div >
     );
 }

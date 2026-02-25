@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
-import { Search, Plus, Edit2, X, ArrowLeft, UserCheck, UserX } from 'lucide-react';
+import { Search, Plus, Edit2, X, UserCheck, UserX } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 
 type ModalMode = 'create' | 'edit' | null;
 
 export default function AdminUsers() {
-  const { logout } = useAuth();
   const [users, setUsers] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,13 +160,6 @@ export default function AdminUsers() {
       {/* Header */}
       <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
-            className="btn-secondary"
-            onClick={() => window.location.href = '/admin'}
-            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <ArrowLeft size={16} /> Admin
-          </button>
           <div>
             <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.5rem', fontWeight: '800' }}>
               Gestión de Usuarios
@@ -181,9 +172,6 @@ export default function AdminUsers() {
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn-primary" onClick={openCreateModal} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={18} /> Nuevo Usuario
-          </button>
-          <button className="btn-secondary" onClick={logout} style={{ padding: '12px 16px' }}>
-            Cerrar Sesión
           </button>
         </div>
       </header>
