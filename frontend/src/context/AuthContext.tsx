@@ -18,6 +18,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const TOKEN_KEY = 'cb_access_token';
 const USER_KEY = 'cb_user';
+const REFRESH_KEY = 'cb_refresh_token';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
@@ -30,6 +31,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedUser = localStorage.getItem(USER_KEY);
+    const savedRefresh = localStorage.getItem(REFRESH_KEY);
+
+    const clearSession = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      api.setToken(null);
+      setState({ token: null, user: null, loading: false });
+    };
+
+    const finalizeSession = (data: LoginResponse) => {
+      api.setToken(data.access_token);
+      localStorage.setItem(TOKEN_KEY, data.access_token);
+      localStorage.setItem(REFRESH_KEY, data.refresh_token || '');
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      setState({ token: data.access_token, user: data.user, loading: false });
+    };
+
+    const refreshSession = async () => {
+      if (!savedRefresh) {
+        clearSession();
+        return;
+      }
+
+      try {
+        const data = await api.post<LoginResponse>('/auth/refresh', {
+          refresh_token: savedRefresh,
+        });
+        finalizeSession(data);
+      } catch {
+        clearSession();
+      }
+    };
 
     if (savedToken && savedUser) {
       api.setToken(savedToken);
@@ -43,33 +77,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loading: true,
         });
       } catch {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        api.setToken(null);
-        setState({ token: null, user: null, loading: false });
+        clearSession();
         return;
       }
 
       // Verify token is still valid by fetching latest profile (including latest rol)
-      api.get<Usuario>('/auth/me').then((user) => {
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        setState({ token: savedToken, user, loading: false });
-      }).catch(() => {
-        // Token expired or server error
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        api.setToken(null);
-        setState({ token: null, user: null, loading: false });
-      });
-    } else {
-      setState((s) => ({ ...s, loading: false }));
+      api.get<Usuario>('/auth/me')
+        .then((user) => {
+          localStorage.setItem(USER_KEY, JSON.stringify(user));
+          setState({ token: savedToken, user, loading: false });
+        })
+        .catch(() => refreshSession());
+      return;
     }
+
+    if (savedRefresh) {
+      refreshSession();
+      return;
+    }
+
+    setState((s) => ({ ...s, loading: false }));
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await api.post<LoginResponse>('/auth/login', { email, password });
     api.setToken(data.access_token);
     localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem(REFRESH_KEY, data.refresh_token || '');
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     setState({ token: data.access_token, user: data.user, loading: false });
   }, []);
@@ -77,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(REFRESH_KEY);
     api.setToken(null);
     setState({ token: null, user: null, loading: false });
   }, []);

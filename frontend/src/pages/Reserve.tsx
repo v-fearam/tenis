@@ -7,6 +7,7 @@ import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Calendar as CalendarIcon, Wallet, CreditCard } from 'lucide-react';
+import { formatYYYYMMDDtoDDMMYYYY } from '../lib/dateUtils';
 import '../index.css';
 import logo from '../assets/logo.jpg';
 
@@ -204,11 +205,7 @@ export default function Reserve() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
                             <CalendarIcon size={16} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
                             <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
-                                {(() => {
-                                    const [year, month, day] = dashboard.nextMatch.fecha.split('-').map(Number);
-                                    const date = new Date(year, month - 1, day);
-                                    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-                                })()} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
+                                {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
                             </div>
                         </div>
                     )}

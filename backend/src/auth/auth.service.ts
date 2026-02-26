@@ -88,6 +88,46 @@ export class AuthService {
     };
   }
 
+  async refresh(refreshToken: string) {
+    const client = this.supabaseService.getClient();
+
+    const { data, error } = await client.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+
+    if (error || !data.session || !data.user) {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+
+    const authClient = this.supabaseService.getAuthenticatedClient(
+      data.session.access_token,
+    );
+
+    const { data: usuario, error: profileError } = await authClient
+      .from('usuarios')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !usuario) {
+      throw new UnauthorizedException('Perfil de usuario no encontrado');
+    }
+
+    const finalUser = {
+      id: data.user.id,
+      email: data.user.email,
+      nombre: data.user.user_metadata?.nombre,
+      rol: data.user.user_metadata?.rol || 'socio',
+      ...usuario,
+    };
+
+    return {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      user: finalUser,
+    };
+  }
+
   async getProfile(userId: string, accessToken: string) {
     // Use authenticated client so RLS auth.uid() resolves correctly
     const authClient = this.supabaseService.getAuthenticatedClient(accessToken);

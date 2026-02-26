@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
+import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 
 interface Booking {
     id: string;
@@ -18,30 +20,55 @@ interface Booking {
 
 export default function AdminDashboard() {
     const [bookings, setBookings] = useState<Booking[]>([]);
-    const [stats, setStats] = useState({
-        activeBookings: 0,
-        pendingConfirmations: 0,
-        totalUsers: 0,
-        revenue: '$45.200'
-    });
+    const [activeBookings, setActiveBookings] = useState<Booking[]>([]);
+    const [totalUsers, setTotalUsers] = useState(0);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+    const [activeView, setActiveView] = useState<'pending' | 'active'>('pending');
+
+    const [dateFrom, setDateFrom] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    });
+    const [dateTo, setDateTo] = useState(() => {
+        const in30Days = new Date();
+        in30Days.setDate(in30Days.getDate() + 30);
+        return in30Days.toISOString().split('T')[0];
+    });
+
+    const pendingBookings = bookings.filter(b => b.status === 'pending');
+
+    const filterBookingsByDate = (bookings: Booking[]) => {
+        const from = new Date(dateFrom);
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        return bookings.filter(b => {
+            const bookingDate = new Date(b.start_time);
+            return bookingDate >= from && bookingDate <= to;
+        });
+    };
+
+    const filteredPending = filterBookingsByDate(pendingBookings);
+    const filteredActive = filterBookingsByDate(activeBookings);
+
+    const isActiveBooking = (booking: Booking) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return new Date(booking.start_time) >= today;
+    };
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [bookingsData, usersCount] = await Promise.all([
+                const [bookingsData, activeData, usersCount] = await Promise.all([
                     api.get<Booking[]>('/bookings'),
+                    api.get<Booking[]>('/bookings/active'),
                     api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 }))
                 ]);
 
                 setBookings(bookingsData);
-                setStats(prev => ({
-                    ...prev,
-                    activeBookings: bookingsData.filter(b => b.status === 'confirmed').length,
-                    pendingConfirmations: bookingsData.filter(b => b.status === 'pending').length,
-                    totalUsers: usersCount.count
-                }));
+                setActiveBookings(activeData);
+                setTotalUsers(usersCount.count);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -55,12 +82,13 @@ export default function AdminDashboard() {
     const handleConfirm = async (id: string) => {
         try {
             await api.patch(`/bookings/${id}/confirm`, {});
-            setBookings(bookings.map(b => b.id === id ? { ...b, status: 'confirmed' } : b));
-            setStats(prev => ({
-                ...prev,
-                pendingConfirmations: prev.pendingConfirmations - 1,
-                activeBookings: prev.activeBookings + 1
-            }));
+            const updatedBookings = bookings.map(b => b.id === id ? { ...b, status: 'confirmed' } : b);
+            setBookings(updatedBookings);
+
+            const confirmed = updatedBookings.find(b => b.id === id);
+            if (confirmed && isActiveBooking(confirmed)) {
+                setActiveBookings(prev => prev.some(b => b.id === id) ? prev : [confirmed, ...prev]);
+            }
             setToast({ message: 'Reserva confirmada.', type: 'success' });
         } catch (err) {
             setToast({ message: 'Error al confirmar reserva', type: 'error' });
@@ -70,11 +98,8 @@ export default function AdminDashboard() {
     const handleCancel = async (id: string) => {
         try {
             await api.patch(`/bookings/${id}/cancel`, {});
-            setBookings(bookings.filter(b => b.id !== id));
-            setStats(prev => ({
-                ...prev,
-                pendingConfirmations: prev.pendingConfirmations - 1
-            }));
+            setBookings(prev => prev.filter(b => b.id !== id));
+            setActiveBookings(prev => prev.filter(b => b.id !== id));
             setToast({ message: 'Reserva rechazada.', type: 'success' });
         } catch (err) {
             setToast({ message: 'Error al cancelar reserva', type: 'error' });
@@ -113,110 +138,210 @@ export default function AdminDashboard() {
                 </header>
 
                 {/* Grid of Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <StatCard
                         title="Reservas Activas"
-                        value={stats.activeBookings}
+                        value={activeBookings.length}
                         icon={<Calendar size={22} />}
                         color="blue"
                     />
                     <StatCard
                         title="Por Aprobar"
-                        value={stats.pendingConfirmations}
+                        value={pendingBookings.length}
                         icon={<Clock size={22} />}
                         color="orange"
                         pulse
                     />
                     <StatCard
                         title="Socios Club"
-                        value={stats.totalUsers}
+                        value={totalUsers}
                         icon={<Users size={22} />}
                         color="blue"
                     />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
-                    {/* ACTION CENTER: Booking Approval */}
-                    <section>
-                        <div className="card glass" style={{ padding: '30px', minHeight: '500px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                                <h2 style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--text-main)' }}>Centro de Aprobaciones</h2>
-                                <span className="badge" style={{ background: 'var(--clay-orange-pastel)', color: 'var(--clay-orange)', fontWeight: '800' }}>
-                                    {bookings.filter(b => b.status === 'pending').length} PENDIENTES
-                                </span>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {bookings.filter(b => b.status === 'pending').length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '100px 20px', opacity: 0.6 }}>
-                                        <div style={{ background: '#D4EFDF', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: '#27AE60' }}>
-                                            <Check size={32} />
-                                        </div>
-                                        <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>Bandeja despejada</p>
-                                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No hay reservas aguardando confirmación.</p>
-                                    </div>
-                                ) : (
-                                    bookings.filter(b => b.status === 'pending').map(booking => (
-                                        <div key={booking.id} className="hover-scale" style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            background: 'rgba(255,255,255,0.4)',
-                                            padding: '16px 20px',
-                                            borderRadius: '18px',
-                                            border: '1px solid var(--border)'
-                                        }}>
-                                            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                                                <div style={{
-                                                    width: '56px', height: '56px', borderRadius: '14px',
-                                                    background: 'var(--brand-blue)', color: 'white',
-                                                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-                                                }}>
-                                                    <span style={{ fontSize: '0.65rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
-                                                    <span style={{ fontSize: '1.2rem', fontWeight: '900' }}>{booking.court_id}</span>
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-main)' }}>
-                                                        {new Date(booking.start_time).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
-                                                    </div>
-                                                    <div style={{ fontSize: '0.9rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
-                                                        Solicita: {booking.solicitante_nombre}
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
-                                                        <span className="badge" style={{ fontSize: '0.7rem', background: 'var(--bg-main)' }}>
-                                                            {booking.type === 'single' ? 'Singles' : 'Dobles'}
-                                                        </span>
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Duración: 90m</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div style={{ display: 'flex', gap: '10px' }}>
-                                                <button
-                                                    onClick={() => handleCancel(booking.id)}
-                                                    className="btn-secondary"
-                                                    style={{ width: '44px', height: '44px', borderRadius: '12px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
-                                                    title="Rechazar"
-                                                >
-                                                    <X size={20} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleConfirm(booking.id)}
-                                                    className="btn-primary"
-                                                    style={{ width: '44px', height: '44px', borderRadius: '12px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27AE60', color: 'white', border: 'none' }}
-                                                    title="Aprobar"
-                                                >
-                                                    <Check size={20} />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    </section>
-
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            onClick={() => setActiveView('pending')}
+                            style={{
+                                padding: '8px 14px',
+                                borderRadius: '12px',
+                                background: activeView === 'pending' ? 'var(--text-main)' : 'var(--bg-main)',
+                                color: activeView === 'pending' ? 'white' : 'var(--text-main)',
+                                border: activeView === 'pending' ? 'none' : '1px solid var(--border)',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Pendientes
+                        </button>
+                        <button
+                            onClick={() => setActiveView('active')}
+                            style={{
+                                padding: '8px 14px',
+                                borderRadius: '12px',
+                                background: activeView === 'active' ? 'var(--text-main)' : 'var(--bg-main)',
+                                color: activeView === 'active' ? 'white' : 'var(--text-main)',
+                                border: activeView === 'active' ? 'none' : '1px solid var(--border)',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Activos
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
+                        <DateInputDDMMYYYY
+                            value={dateFrom}
+                            onChange={setDateFrom}
+                            compact
+                        />
+                        <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta:</label>
+                        <DateInputDDMMYYYY
+                            value={dateTo}
+                            onChange={setDateTo}
+                            compact
+                        />
+                    </div>
                 </div>
+
+                <section>
+                    <div className="card glass" style={{ padding: '22px', minHeight: '480px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)' }}>
+                                {activeView === 'pending' ? 'Centro de Aprobaciones' : 'Turnos Activos'}
+                            </h2>
+                            <span
+                                className="badge"
+                                style={{
+                                    background: activeView === 'pending' ? 'var(--clay-orange-pastel)' : 'var(--brand-blue-pastel)',
+                                    color: activeView === 'pending' ? 'var(--clay-orange)' : 'var(--brand-blue)',
+                                    fontWeight: '800'
+                                }}
+                            >
+                                {activeView === 'pending' ? `${filteredPending.length} PENDIENTES` : `${filteredActive.length} ACTIVOS`}
+                            </span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {activeView === 'pending' && filteredPending.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
+                                    <div style={{ background: '#D4EFDF', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#27AE60' }}>
+                                        <Check size={30} />
+                                    </div>
+                                    <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>Bandeja despejada</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No hay reservas aguardando confirmación.</p>
+                                </div>
+                            )}
+
+                            {activeView === 'active' && filteredActive.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
+                                    <div style={{ background: 'var(--brand-blue-pastel)', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--brand-blue)' }}>
+                                        <Calendar size={30} />
+                                    </div>
+                                    <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>No hay turnos activos</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Las reservas confirmadas futuras aparecerán aquí.</p>
+                                </div>
+                            )}
+
+                            {activeView === 'pending' && filteredPending.map(booking => (
+                                <div key={booking.id} className="hover-scale" style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: 'rgba(255,255,255,0.4)',
+                                    padding: '10px 16px',
+                                    borderRadius: '14px',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                                        <div style={{
+                                            width: '48px', height: '48px', borderRadius: '12px',
+                                            background: 'var(--brand-blue)', color: 'white',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
+                                            <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
+                                            {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
+                                                Solicita: {booking.solicitante_nombre}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => handleCancel(booking.id)}
+                                            className="btn-secondary"
+                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
+                                            title="Rechazar"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleConfirm(booking.id)}
+                                            className="btn-primary"
+                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27AE60', color: 'white', border: 'none' }}
+                                            title="Aprobar"
+                                        >
+                                            <Check size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {activeView === 'active' && filteredActive.map(booking => (
+                                <div key={booking.id} className="hover-scale" style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: 'rgba(255,255,255,0.4)',
+                                    padding: '10px 16px',
+                                    borderRadius: '14px',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                                        <div style={{
+                                            width: '48px', height: '48px', borderRadius: '12px',
+                                            background: 'var(--brand-blue)', color: 'white',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
+                                            <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
+                                                {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
+                                                Solicita: {booking.solicitante_nombre}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button
+                                            onClick={() => handleCancel(booking.id)}
+                                            className="btn-secondary"
+                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
+                                            title="Cancelar"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
             </main>
         </div>
     );

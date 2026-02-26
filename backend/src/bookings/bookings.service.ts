@@ -122,6 +122,30 @@ export class BookingsService {
         return data.map(b => this.mapToFrontendStructure(b));
     }
 
+    async findActive(accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+        const timeZone = 'America/Argentina/Buenos_Aires';
+        const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        const today = dateFormatter.format(new Date());
+
+        const { data, error } = await client
+            .from('turnos')
+            .select('*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)')
+            .eq('estado', 'confirmado')
+            .gte('fecha', today)
+            .order('fecha', { ascending: true })
+            .order('hora_inicio', { ascending: true });
+
+        if (error) throw error;
+        return data.map(b => this.mapToFrontendStructure(b));
+    }
+
     async confirm(bookingId: string, accessToken: string) {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
 

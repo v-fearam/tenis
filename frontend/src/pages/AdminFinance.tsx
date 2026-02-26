@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
+import { formatDateToDDMMYYYY } from '../lib/dateUtils';
 
 interface Booking {
     id: string;
@@ -140,7 +141,7 @@ export default function AdminFinance() {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                 <Calendar size={16} color="var(--brand-blue)" />
                                                 <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>
-                                                    {new Date(booking.start_time).toLocaleDateString('es-AR')}
+                                                    {formatDateToDDMMYYYY(booking.start_time)}
                                                 </span>
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                                                     {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs

@@ -53,6 +53,13 @@ export class BookingsController {
     return this.bookingsService.findAllCourts(req?.accessToken);
   }
 
+  @Get('active')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  findActive(@Req() req: any) {
+    return this.bookingsService.findActive(req.accessToken);
+  }
+
   @Patch(':id/confirm')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')

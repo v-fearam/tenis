@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
+import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 
 interface Bloqueo {
     id: string;
@@ -23,6 +25,28 @@ export default function AdminBloqueos() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const [isExplaining, setIsExplaining] = useState(false);
+
+    const [dateFrom, setDateFrom] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    });
+    const [dateTo, setDateTo] = useState(() => {
+        const in30Days = new Date();
+        in30Days.setDate(in30Days.getDate() + 30);
+        return in30Days.toISOString().split('T')[0];
+    });
+
+    const filterBloqueosByDate = (bloqueos: Bloqueo[]) => {
+        const from = new Date(dateFrom);
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        return bloqueos.filter(b => {
+            const bloqueoDate = new Date(b.fecha + 'T12:00:00');
+            return bloqueoDate >= from && bloqueoDate <= to;
+        });
+    };
+
+    const filteredBloqueos = filterBloqueosByDate(bloqueos);
 
     // Form State
     const [isCreating, setIsCreating] = useState(false);
@@ -172,24 +196,20 @@ export default function AdminBloqueos() {
                             </div>
 
                             <div className="form-group">
-                                <label>Fecha Inicio (o única)</label>
-                                <input
-                                    type="date"
+                                <DateInputDDMMYYYY
                                     value={formData.fecha}
-                                    onChange={e => setFormData({ ...formData, fecha: e.target.value })}
+                                    onChange={fecha => setFormData({ ...formData, fecha })}
+                                    label="Fecha Inicio (o única)"
                                     required
-                                    style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
                                 />
                             </div>
 
                             <div className="form-group">
-                                <label>Fecha Hasta (Opcional)</label>
-                                <input
-                                    type="date"
+                                <DateInputDDMMYYYY
                                     value={formData.fecha_fin}
-                                    onChange={e => setFormData({ ...formData, fecha_fin: e.target.value })}
+                                    onChange={fecha_fin => setFormData({ ...formData, fecha_fin })}
+                                    label="Fecha Hasta (Opcional)"
                                     min={formData.fecha}
-                                    style={{ width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
                                 />
                             </div>
 
@@ -238,10 +258,25 @@ export default function AdminBloqueos() {
             )}
 
             <main>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
+                    <DateInputDDMMYYYY
+                        value={dateFrom}
+                        onChange={setDateFrom}
+                        compact
+                    />
+                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta:</label>
+                    <DateInputDDMMYYYY
+                        value={dateTo}
+                        onChange={setDateTo}
+                        compact
+                    />
+                </div>
+
                 <div className="card" style={{ minHeight: '400px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                         <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--brand-blue)' }}>Bloqueos Registrados</h2>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{bloqueos.length} bloqueos totales</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{filteredBloqueos.length} de {bloqueos.length}</span>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>
@@ -259,14 +294,14 @@ export default function AdminBloqueos() {
                             <tbody>
                                 {loading ? (
                                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>Cargando bloqueos...</td></tr>
-                                ) : bloqueos.length === 0 ? (
-                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay bloqueos activos.</td></tr>
+                                ) : filteredBloqueos.length === 0 ? (
+                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay bloqueos en este período.</td></tr>
                                 ) : (
-                                    bloqueos.map(b => (
+                                    filteredBloqueos.map(b => (
                                         <tr key={b.id} className="hover-scale" style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }}>
                                             <td style={{ padding: '15px', fontWeight: '700' }}>{b.canchas?.nombre || `Cancha ${b.id_cancha}`}</td>
                                             <td style={{ padding: '15px' }}>
-                                                {new Date(b.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short', weekday: 'short' })}
+                                                {formatDateToDDMMYYYY(b.fecha)}
                                             </td>
                                             <td style={{ padding: '15px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

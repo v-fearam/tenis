@@ -28,3 +28,8 @@ export class RegisterDto {
   @IsString()
   telefono?: string;
 }
+
+export class RefreshTokenDto {
+  @IsString()
+  refresh_token: string;
+}
