@@ -74,11 +74,11 @@ export class BookingsService {
                 estado: 'pendiente',
                 creado_por: creatorId,
                 // Store organizer contact info if not authenticated
-                ...((!creatorId && createBookingDto.organizer_name) && {
+                ...(!creatorId ? {
                     nombre_organizador: createBookingDto.organizer_name,
                     email_organizador: createBookingDto.organizer_email,
                     telefono_organizador: createBookingDto.organizer_phone,
-                }),
+                } : {}),
             })
             .select()
             .single();
