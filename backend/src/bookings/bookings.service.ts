@@ -18,10 +18,10 @@ export class BookingsService {
         private readonly abonosService: AbonosService
     ) { }
 
-    async create(createBookingDto: CreateBookingDto, creatorId: string, accessToken: string) {
-        console.log('Creating booking for user:', creatorId);
+    async create(createBookingDto: CreateBookingDto, creatorId: string | null, accessToken: string | null) {
+        console.log('Creating booking for user:', creatorId || 'anonymous');
 
-        const client = this.supabaseService.getAuthenticatedClient(accessToken);
+        const client = this.supabaseService.getOptionalClient(accessToken || undefined);
 
         // Use a consistent timezone for all calculations (Argentina)
         const timeZone = 'America/Argentina/Buenos_Aires';
@@ -73,6 +73,12 @@ export class BookingsService {
                 tipo_partido: createBookingDto.type,
                 estado: 'pendiente',
                 creado_por: creatorId,
+                // Store organizer contact info if not authenticated
+                ...((!creatorId && createBookingDto.organizer_name) && {
+                    nombre_organizador: createBookingDto.organizer_name,
+                    email_organizador: createBookingDto.organizer_email,
+                    telefono_organizador: createBookingDto.organizer_phone,
+                }),
             })
             .select()
             .single();

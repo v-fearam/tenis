@@ -17,7 +17,7 @@ interface BookingFormProps {
   courtId: number;
   slot: string;
   onCancel: () => void;
-  onSubmit: (data: { type: MatchType; players: Player[] }) => void;
+  onSubmit: (data: { type: MatchType; players: Player[]; organizer_name?: string; organizer_email?: string; organizer_phone?: string }) => void;
 }
 
 export default function BookingForm({ courtId, slot, onCancel, onSubmit }: BookingFormProps) {
@@ -25,6 +25,11 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   const [matchType, setMatchType] = useState<MatchType | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
+
+  // Contact info for non-authenticated organizers
+  const [organizerName, setOrganizerName] = useState('');
+  const [organizerEmail, setOrganizerEmail] = useState('');
+  const [organizerPhone, setOrganizerPhone] = useState('');
 
   const maxPlayers = matchType === MatchType.SINGLE ? 2 : 4;
 
@@ -58,6 +63,8 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   };
 
   const allPlayersFilled = players.length > 0 && players.every((p) => p.display_name.trim() !== '');
+  const organizerContactFilled = user || (organizerName.trim() !== '' && organizerEmail.trim() !== '' && organizerPhone.trim() !== '');
+  const canSubmit = allPlayersFilled && organizerContactFilled;
 
   // Step 1: Select match type
   if (!matchType) {
@@ -98,7 +105,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   // Step 2: Fill players
   return (
     <Overlay>
-      <div className="card animate-slide-up" style={{ width: '100%', maxWidth: '520px' }}>
+      <div className="card animate-slide-up" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <h2 style={{ color: 'var(--brand-blue)' }}>Jugadores</h2>
           <span style={{
@@ -112,6 +119,45 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
         <p style={{ color: 'var(--text-muted)', marginBottom: '20px', fontSize: '0.9rem' }}>
           Cancha {courtId} &bull; {slot} hs &bull; {maxPlayers} jugadores
         </p>
+
+        {/* Organizer Contact Info (only if not logged in) */}
+        {!user && (
+          <div style={{
+            padding: '16px',
+            background: 'var(--brand-blue-pastel)',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '20px',
+            border: '1px solid var(--border)'
+          }}>
+            <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>Datos de Contacto del Organizador</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <input
+                type="text"
+                placeholder="Nombre completo *"
+                value={organizerName}
+                onChange={(e) => setOrganizerName(e.target.value)}
+                className="form-input"
+                required
+              />
+              <input
+                type="email"
+                placeholder="Email *"
+                value={organizerEmail}
+                onChange={(e) => setOrganizerEmail(e.target.value)}
+                className="form-input"
+                required
+              />
+              <input
+                type="tel"
+                placeholder="Teléfono *"
+                value={organizerPhone}
+                onChange={(e) => setOrganizerPhone(e.target.value)}
+                className="form-input"
+                required
+              />
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
           {players.map((player, index) => (
@@ -145,9 +191,17 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
           </button>
           <button
             className="btn-primary"
-            onClick={() => onSubmit({ type: matchType, players })}
-            disabled={!allPlayersFilled}
-            style={{ flex: 1, opacity: allPlayersFilled ? 1 : 0.5, cursor: allPlayersFilled ? 'pointer' : 'not-allowed' }}
+            onClick={() => onSubmit({
+              type: matchType,
+              players,
+              ...(organizerName && {
+                organizer_name: organizerName,
+                organizer_email: organizerEmail,
+                organizer_phone: organizerPhone,
+              })
+            })}
+            disabled={!canSubmit}
+            style={{ flex: 1, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
           >
             Solicitar Reserva
           </button>

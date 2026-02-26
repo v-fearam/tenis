@@ -31,6 +31,9 @@
   /* Mobile-first touch targets */
   --touch-min: 48px;
   --touch-optimal: 56px;
+
+  /* Compact slot height for mobile calendar */
+  --slot-height-mobile: 48px;
 }
 
 * {
@@ -437,5 +440,151 @@ body {
 @media (max-width: 480px) {
   .dashboard-compact {
     display: none;
+  }
+}
+
+/* Ultra-Compact Reserve Header for Mobile Optimization */
+.reserve-header {
+  display: flex;
+  align-items: center;
+  justifycontent: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reserve-header-branding {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.reserve-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--brand-blue-pastel);
+  flex-shrink: 0;
+}
+
+.reserve-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.reserve-title {
+  color: var(--brand-blue);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  margin: 0;
+}
+
+.reserve-subtitle {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  margin: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.reserve-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.reserve-btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-block;
+  transition: var(--transition);
+}
+
+.reserve-btn-admin {
+  background: var(--brand-blue-pastel);
+  color: var(--brand-blue);
+  padding: 6px 10px;
+  font-size: 0.75rem;
+}
+
+.reserve-btn-login {
+  background: var(--brand-blue);
+  color: white;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+}
+
+.reserve-user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.reserve-user-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.reserve-btn-logout {
+  background: none;
+  border: none;
+  color: var(--brand-blue);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+/* Desktop: Larger sizes */
+@media (min-width: 768px) {
+  .reserve-header {
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+
+  .reserve-logo {
+    width: 42px;
+    height: 42px;
+  }
+
+  .reserve-title {
+    font-size: 1.3rem;
+  }
+
+  .reserve-subtitle {
+    font-size: 0.75rem;
+    margin-top: 3px;
+  }
+
+  .reserve-btn-admin,
+  .reserve-btn-login {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  .reserve-user-name {
+    font-size: 0.85rem;
+  }
+
+  .reserve-btn-logout {
+    font-size: 0.8rem;
   }
 }

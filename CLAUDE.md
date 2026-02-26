@@ -132,7 +132,9 @@ tenis/
   - `@nestjs/jwt` (JWT utilities)
   - `@supabase/supabase-js` (v2.97)
   - `class-validator`, `class-transformer` (DTO validation)
+  - `axios` (HTTP client for reCAPTCHA verification)
 - **Supabase Integration**: `SupabaseService` is a global injectable that provides the Supabase client via `getClient()`
+- **Bot Protection**: `RecaptchaService` in `common/` verifies Google reCAPTCHA v3 tokens with configurable score threshold (min: 0.5)
 - **Authentication**: Supabase Auth with JWT validation in `JwtAuthGuard`, role-based access via `RolesGuard` + `@Roles()` decorator
 - **User management**: Admin creates users via `auth.admin.createUser()` → trigger auto-creates `usuarios` row → service creates `socios` row if role is socio
 - **Booking confirmation flow** (key business logic in `bookings.service.ts`):
@@ -249,11 +251,13 @@ Key tables: `usuarios`, `socios`, `bookings`, `booking_players`, `courts`, `cour
   - `SUPABASE_KEY`: Service role key (secret, admin privileges)
   - `PORT`: Server port (default: 3000)
   - `FRONTEND_URL`: Frontend origin for CORS (default: `http://localhost:5173`)
+  - `RECAPTCHA_SECRET_KEY`: Google reCAPTCHA v3 secret key for bot protection (see `docs/recaptcha-setup.md`)
 
 - **Frontend** `.env`:
   - `VITE_SUPABASE_URL`: Supabase project URL
   - `VITE_SUPABASE_ANON_KEY`: Public anon key for client-side auth
   - `VITE_API_URL`: Backend API base URL (default: `http://localhost:3000/api`)
+  - `VITE_RECAPTCHA_SITE_KEY`: Google reCAPTCHA v3 site key for bot protection (see `docs/recaptcha-setup.md`)
 
 ## Deployment
 

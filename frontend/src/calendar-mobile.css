@@ -1,0 +1,280 @@
+/* Calendar Mobile-Optimized Styles */
+.calendar-header-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.date-selector {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.date-selector::-webkit-scrollbar {
+  display: none;
+}
+
+.date-selector-item {
+  min-width: 52px;
+  min-height: 48px;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-blue-pastel);
+  color: var(--brand-blue);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.date-selector-item.date-selected {
+  background: var(--brand-blue);
+  color: white;
+  box-shadow: var(--shadow-md);
+  transform: scale(1.03);
+}
+
+.date-day-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.9;
+  line-height: 1;
+}
+
+.date-day-num {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-top: 2px;
+  line-height: 1;
+}
+
+/* Selected Slot Panel */
+.selected-slot-panel {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--brand-blue);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md);
+  min-width: 100%;
+}
+
+.selected-slot-info {
+  text-align: center;
+}
+
+.selected-slot-title {
+  font-weight: 700;
+  color: var(--brand-blue);
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.selected-slot-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.selected-slot-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Court Headers - Ultra Compact for Mobile */
+.court-header-corner {
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  height: 42px;
+  border-bottom: 2px solid var(--brand-blue-pastel);
+  border-right: 1px solid var(--border);
+}
+
+.court-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 3px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: var(--brand-blue);
+  border-bottom: 2px solid var(--brand-blue-pastel);
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 42px;
+}
+
+.court-name {
+  line-height: 1;
+}
+
+.court-light-icon {
+  color: #FFB800;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+/* Desktop: Larger sizes */
+@media (min-width: 768px) {
+  .calendar-header-wrapper {
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .date-selector {
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+
+  .date-selector-item {
+    min-width: 65px;
+    min-height: var(--touch-optimal);
+    padding: 10px 8px;
+  }
+
+  .date-day-name {
+    font-size: 0.75rem;
+  }
+
+  .date-day-num {
+    font-size: 1.25rem;
+  }
+
+  .selected-slot-panel {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .selected-slot-title {
+    font-size: 1.05rem;
+  }
+
+  .selected-slot-date {
+    font-size: 0.825rem;
+  }
+
+  .selected-slot-actions {
+    gap: 10px;
+  }
+
+  .court-header-corner {
+    height: var(--touch-optimal);
+  }
+
+  .court-header {
+    padding: 8px 4px;
+    font-size: 0.85rem;
+    gap: 4px;
+    height: var(--touch-optimal);
+  }
+
+  .court-light-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* Reserve Calendar Card & Title - Mobile Optimized */
+.reserve-calendar-card {
+  min-height: 500px;
+  padding: 12px;
+}
+
+.reserve-calendar-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--brand-blue);
+  line-height: 1.2;
+}
+
+/* Calendar Grid - Ultra Narrow Time Column for Mobile */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: 45px repeat(5, minmax(80px, 1fr));
+  gap: 6px;
+  min-width: min-content;
+  padding-right: 4px;
+}
+
+.time-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  background: var(--bg-card);
+  z-index: 15;
+  border-right: 1px solid var(--border);
+  padding-right: 4px;
+  min-height: var(--slot-height-mobile);
+  height: var(--slot-height-mobile);
+  line-height: 1;
+}
+
+/* Court Slot - Mobile Optimized Height */
+.court-slot {
+  min-height: var(--slot-height-mobile);
+  height: var(--slot-height-mobile);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (min-width: 768px) {
+  .reserve-calendar-card {
+    padding: 20px;
+  }
+
+  .reserve-calendar-title {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+  }
+
+  .calendar-grid {
+    grid-template-columns: 55px repeat(5, minmax(80px, 1fr));
+    gap: 8px;
+  }
+
+  .time-label {
+    font-size: 0.85rem;
+    padding-right: 6px;
+    min-height: var(--touch-optimal);
+    height: var(--touch-optimal);
+  }
+
+  .court-slot {
+    min-height: var(--touch-optimal);
+    height: var(--touch-optimal);
+  }
+}

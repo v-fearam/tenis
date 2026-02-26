@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import Calendar from '../components/Calendar';
 import BookingForm from '../components/BookingForm';
 import { Toast, type ToastType } from '../components/Toast';
@@ -34,6 +35,7 @@ export default function Reserve() {
     const [bookingData, setBookingData] = useState<{ courtId: number; slot: string } | null>(null);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const { user, isAdmin, logout } = useAuth();
+    const { executeRecaptcha } = useGoogleReCaptcha();
     const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3 });
     const [refreshKey, setRefreshKey] = useState(0);
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -64,13 +66,24 @@ export default function Reserve() {
         fetchDashboard();
     }, [user, refreshKey]);
 
-    const handleSubmitBooking = async (details: { type: MatchType; players: Player[] }) => {
+    const handleSubmitBooking = async (details: { type: MatchType; players: Player[]; organizer_name?: string; organizer_email?: string; organizer_phone?: string }) => {
         if (!bookingData) return;
 
-        const startTime = new Date(bookingData.slot);
-        const endTime = new Date(startTime.getTime() + (config.blockDuration * config.blocksPerTurn) * 60 * 1000);
-
         try {
+            // Generate reCAPTCHA token
+            if (!executeRecaptcha) {
+                setToast({
+                    message: 'reCAPTCHA no está disponible. Por favor, recargue la página.',
+                    type: 'error'
+                });
+                return;
+            }
+
+            const recaptchaToken = await executeRecaptcha('booking_submit');
+
+            const startTime = new Date(bookingData.slot);
+            const endTime = new Date(startTime.getTime() + (config.blockDuration * config.blocksPerTurn) * 60 * 1000);
+
             await api.post('/bookings', {
                 court_id: bookingData.courtId,
                 start_time: startTime.toISOString(),
@@ -81,6 +94,14 @@ export default function Reserve() {
                     guest_name: p.guest_name || undefined,
                     is_organizer: p.is_organizer,
                 })),
+                // Include organizer contact info if not authenticated
+                ...(details.organizer_name && {
+                    organizer_name: details.organizer_name,
+                    organizer_email: details.organizer_email,
+                    organizer_phone: details.organizer_phone,
+                }),
+                // Include reCAPTCHA token
+                recaptcha_token: recaptchaToken,
             });
             setToast({
                 message: 'Reserva enviada exitosamente. Pendiente de confirmación.',
@@ -118,122 +139,44 @@ export default function Reserve() {
                 />
             )}
 
-            {/* Compact Header - Saves Vertical Space */}
-            <header style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-                gap: '16px',
-                flexWrap: 'wrap'
-            }}>
+            {/* Ultra-Compact Header for Mobile */}
+            <header className="reserve-header">
                 {/* Logo + Title */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1', minWidth: '200px' }}>
+                <div className="reserve-header-branding">
                     <img
                         src={logo}
-                        alt="Club Belgrano Logo"
-                        style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '50%',
-                            objectFit: 'cover',
-                            border: '2px solid var(--brand-blue-pastel)'
-                        }}
+                        alt="Club Belgrano"
+                        className="reserve-logo"
                     />
-                    <div>
-                        <h1 style={{
-                            color: 'var(--brand-blue)',
-                            fontSize: '1.5rem',
-                            fontWeight: '800',
-                            lineHeight: '1.2',
-                            margin: 0
-                        }}>
-                            CLUB BELGRANO
-                        </h1>
-                        <p style={{
-                            color: 'var(--text-muted)',
-                            fontSize: '0.8rem',
-                            margin: 0,
-                            lineHeight: '1.2'
-                        }}>
-                            Gestión de Canchas
-                        </p>
+                    <div className="reserve-title-wrapper">
+                        <h1 className="reserve-title">CLUB BELGRANO</h1>
+                        <p className="reserve-subtitle">Gestión de Canchas</p>
                     </div>
                 </div>
 
-                {/* Compact User Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                {/* User Actions */}
+                <div className="reserve-header-actions">
                     {user ? (
                         <>
                             {isAdmin && (
                                 <button
                                     onClick={() => window.location.href = '/admin'}
-                                    style={{
-                                        background: 'var(--brand-blue-pastel)',
-                                        color: 'var(--brand-blue)',
-                                        border: 'none',
-                                        padding: '8px 14px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: '0.85rem',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap'
-                                    }}
+                                    className="reserve-btn reserve-btn-admin"
                                 >
                                     Admin
                                 </button>
                             )}
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border)'
-                            }}>
-                                <span style={{
-                                    fontSize: '0.85rem',
-                                    fontWeight: '600',
-                                    color: 'var(--text-main)',
-                                    whiteSpace: 'nowrap'
-                                }}>
+                            <div className="reserve-user-info">
+                                <span className="reserve-user-name">
                                     {user.nombre || user.email?.split('@')[0] || 'Socio'}
                                 </span>
-                                <button
-                                    onClick={handleLogout}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--brand-blue)',
-                                        fontSize: '0.8rem',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        padding: 0,
-                                        textDecoration: 'underline',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
+                                <button onClick={handleLogout} className="reserve-btn-logout">
                                     Salir
                                 </button>
                             </div>
                         </>
                     ) : (
-                        <a
-                            href="/login"
-                            style={{
-                                background: 'var(--brand-blue)',
-                                color: 'white',
-                                border: 'none',
-                                padding: '8px 16px',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
-                                textDecoration: 'none',
-                                display: 'inline-block',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
+                        <a href="/login" className="reserve-btn reserve-btn-login">
                             Iniciar Sesión
                         </a>
                     )}
@@ -277,8 +220,8 @@ export default function Reserve() {
 
             <main className="animate-slide-up">
                 <section>
-                    <div className="card glass" style={{ minHeight: '500px', padding: '20px' }}>
-                        <h2 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '16px', color: 'var(--brand-blue)' }}>
+                    <div className="card glass reserve-calendar-card">
+                        <h2 className="reserve-calendar-title">
                             Reservar Cancha
                         </h2>
 

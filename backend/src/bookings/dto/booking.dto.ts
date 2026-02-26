@@ -56,4 +56,22 @@ export class CreateBookingDto {
     @ValidateNested({ each: true })
     @Type(() => BookingPlayerDto)
     players: BookingPlayerDto[];
+
+    // Optional contact info for non-authenticated organizers
+    @IsOptional()
+    @IsString()
+    organizer_name?: string;
+
+    @IsOptional()
+    @IsString()
+    organizer_email?: string;
+
+    @IsOptional()
+    @IsString()
+    organizer_phone?: string;
+
+    // reCAPTCHA token for bot protection
+    @IsOptional()
+    @IsString()
+    recaptcha_token?: string;
 }

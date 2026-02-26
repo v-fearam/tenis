@@ -1,6 +1,7 @@
-import { Clock } from 'lucide-react';
+import { Clock, Lightbulb } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import '../calendar-mobile.css';
 
 interface Court {
     id: number;
@@ -44,12 +45,13 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
         blocksPerTurn: 3
     });
 
+    // Initial courts ordered by light availability (with light first)
     const [courts, setCourts] = useState<Court[]>([
+        { id: 4, nombre: 'Cancha 4', hora_apertura: '08:00', hora_cierre: '23:30' },
+        { id: 5, nombre: 'Cancha 5', hora_apertura: '08:00', hora_cierre: '23:30' },
         { id: 1, nombre: 'Cancha 1', hora_apertura: '08:00', hora_cierre: '18:00' },
         { id: 2, nombre: 'Cancha 2', hora_apertura: '08:00', hora_cierre: '18:00' },
         { id: 3, nombre: 'Cancha 3', hora_apertura: '08:00', hora_cierre: '18:00' },
-        { id: 4, nombre: 'Cancha 4', hora_apertura: '08:00', hora_cierre: '23:30' },
-        { id: 5, nombre: 'Cancha 5', hora_apertura: '08:00', hora_cierre: '23:30' },
     ]);
 
     useEffect(() => {
@@ -61,7 +63,14 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     return api.get<Court[]>('/bookings/courts');
                 });
                 if (courtsData && courtsData.length > 0) {
-                    setCourts(courtsData);
+                    // Sort courts: with light (later closing time) first, then without light
+                    const sortedCourts = courtsData.sort((a, b) => {
+                        const aClose = a.hora_cierre || '18:00';
+                        const bClose = b.hora_cierre || '18:00';
+                        // Sort descending (later closing time first)
+                        return bClose.localeCompare(aClose);
+                    });
+                    setCourts(sortedCourts);
                 }
 
                 const cfg = await api.get<{ clave: string; valor: string }[]>('/config');
@@ -237,23 +246,8 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
     return (
         <div className="calendar-container">
             {/* Header: Date Selector + Selected Slot Info */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '20px',
-                marginBottom: '24px',
-                flexWrap: 'wrap'
-            }}>
-                <div className="date-selector" style={{
-                    display: 'flex',
-                    gap: '12px',
-                    overflowX: 'auto',
-                    paddingBottom: '8px',
-                    scrollbarWidth: 'none',
-                    flex: '1',
-                    WebkitOverflowScrolling: 'touch'
-                }}>
+            <div className="calendar-header-wrapper">
+                <div className="date-selector">
                     {nextSevenDays.map((date, i) => {
                         const { dayName, dayNum } = formatDate(date);
                         const isSelected = isSameDay(date, selectedDate);
@@ -261,53 +255,26 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                             <div
                                 key={i}
                                 onClick={() => setSelectedDate(date)}
-                                style={{
-                                    minWidth: '70px',
-                                    minHeight: 'var(--touch-optimal)',
-                                    padding: '12px 10px',
-                                    borderRadius: 'var(--radius-md)',
-                                    background: isSelected ? 'var(--brand-blue)' : 'var(--brand-blue-pastel)',
-                                    color: isSelected ? 'white' : 'var(--brand-blue)',
-                                    textAlign: 'center',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
-                                    transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                                    WebkitTapHighlightColor: 'transparent',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
+                                className={`date-selector-item ${isSelected ? 'date-selected' : ''}`}
                             >
-                                <div style={{ fontSize: '0.75rem', fontWeight: '600', opacity: 0.9 }}>{dayName}</div>
-                                <div style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '2px' }}>{dayNum}</div>
+                                <div className="date-day-name">{dayName}</div>
+                                <div className="date-day-num">{dayNum}</div>
                             </div>
                         );
                     })}
                 </div>
 
                 {selectedSlot && (
-                    <div className="glass animate-slide-up" style={{
-                        padding: '16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '2px solid var(--brand-blue)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        background: 'var(--bg-card)',
-                        boxShadow: 'var(--shadow-md)',
-                        minWidth: '100%'
-                    }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontWeight: '700', color: 'var(--brand-blue)', fontSize: '1.1rem' }}>
+                    <div className="glass animate-slide-up selected-slot-panel">
+                        <div className="selected-slot-info">
+                            <div className="selected-slot-title">
                                 Cancha {selectedCourt} • {selectedSlot} hs
                             </div>
-                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                            <div className="selected-slot-date">
                                 {formatDate(selectedDate).dayName} {formatDate(selectedDate).dayNum}
                             </div>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div className="selected-slot-actions">
                             <button className="btn-secondary" onClick={() => { setSelectedCourt(null); setSelectedSlot(null); }}>Cancelar</button>
                             <button className="btn-primary" onClick={handleConfirmAction}>Continuar</button>
                         </div>
@@ -322,63 +289,30 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                 WebkitOverflowScrolling: 'touch',
                 position: 'relative'
             }}>
-                <div className="calendar-grid" style={{
-                    display: 'grid',
-                    gridTemplateColumns: '80px repeat(5, minmax(100px, 1fr))',
-                    gap: '8px',
-                    minWidth: 'min-content',
-                    paddingRight: '4px'
-                }}>
+                <div className="calendar-grid">
                 {/* Header: Courts (Sticky Top) */}
-                <div style={{
-                    background: 'var(--bg-card)',
-                    position: 'sticky',
-                    top: 0,
-                    left: 0,
-                    zIndex: 20,
-                    height: 'var(--touch-optimal)',
-                    borderBottom: '2px solid var(--brand-blue-pastel)',
-                    borderRight: '1px solid var(--border)'
-                }}></div>
-                {courts.map(court => (
-                    <div key={court.id} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '10px 4px',
-                        fontWeight: '700',
-                        fontSize: '0.9rem',
-                        color: 'var(--brand-blue)',
-                        borderBottom: '2px solid var(--brand-blue-pastel)',
-                        background: 'var(--bg-card)',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 10,
-                        height: 'var(--touch-optimal)'
-                    }}>
-                        {court.nombre}
-                    </div>
-                ))}
+                <div className="court-header-corner"></div>
+                {courts.map(court => {
+                    // Check if court has lighting (closes after 20:00)
+                    const hasLight = court.hora_cierre && court.hora_cierre >= '20:00';
+
+                    return (
+                        <div key={court.id} className="court-header">
+                            <span className="court-name">{court.nombre}</span>
+                            {hasLight && (
+                                <Lightbulb
+                                    className="court-light-icon"
+                                    title="Cancha con luz"
+                                />
+                            )}
+                        </div>
+                    );
+                })}
 
                 {/* Rows: Time Slots */}
                 {timeSlots.map(time => {
                     const label = (
-                        <div key={`${time}-label`} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.9rem',
-                            color: 'var(--text-muted)',
-                            fontWeight: '600',
-                            position: 'sticky',
-                            left: 0,
-                            background: 'var(--bg-card)',
-                            zIndex: 15,
-                            borderRight: '1px solid var(--border)',
-                            paddingRight: '8px',
-                            minHeight: 'var(--touch-optimal)',
-                            height: 'var(--touch-optimal)'
-                        }}>
+                        <div key={`${time}-label`} className="time-label">
                             {time}
                         </div>
                     );
@@ -436,26 +370,17 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                             <div
                                 key={`${court.id}-${time}`}
                                 onClick={() => handleSlotClick(court.id, time)}
-                                className="glass"
+                                className="glass court-slot"
                                 title={tooltip}
                                 style={{
-                                    minHeight: 'var(--touch-optimal)',
-                                    height: 'var(--touch-optimal)',
-                                    borderRadius: 'var(--radius-sm)',
                                     cursor: isSlotOccupied ? 'not-allowed' : 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.15s',
                                     background: bgColor,
                                     border: isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)',
                                     opacity: opacity,
                                     borderTop: isSelected && !isStart ? 'none' : (isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)'),
                                     borderBottom: isSelected && timeSlots.indexOf(time) < timeSlots.indexOf(selectedSlot!) + config.blocksPerTurn - 1 ? 'none' : (isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)'),
                                     zIndex: isSelected ? 2 : 1,
-                                    boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
-                                    WebkitTapHighlightColor: 'transparent',
-                                    touchAction: 'manipulation'
+                                    boxShadow: isSelected ? 'var(--shadow-md)' : 'none'
                                 }}
                             >
                                 {labelContent}

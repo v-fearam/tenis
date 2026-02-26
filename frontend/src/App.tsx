@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -12,30 +13,34 @@ import AdminBloqueos from './pages/AdminBloqueos';
 import AdminFinance from './pages/AdminFinance';
 import AdminAbonos from './pages/AdminAbonos';
 
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
+
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Reserve />} />
-          {/* ADMIN ROUTES WITH PERSISTENT SIDEBAR */}
-          <Route element={
-            <ProtectedRoute requiredRole="admin">
-              <AdminLayout />
-            </ProtectedRoute>
-          }>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/config" element={<AdminConfig />} />
-            <Route path="/admin/canchas" element={<AdminCanchas />} />
-            <Route path="/admin/bloqueos" element={<AdminBloqueos />} />
-            <Route path="/admin/finanzas" element={<AdminFinance />} />
-            <Route path="/admin/abonos" element={<AdminAbonos />} />
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </Router>
+    <GoogleReCaptchaProvider reCaptchaKey={RECAPTCHA_SITE_KEY}>
+      <Router>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Reserve />} />
+            {/* ADMIN ROUTES WITH PERSISTENT SIDEBAR */}
+            <Route element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/config" element={<AdminConfig />} />
+              <Route path="/admin/canchas" element={<AdminCanchas />} />
+              <Route path="/admin/bloqueos" element={<AdminBloqueos />} />
+              <Route path="/admin/finanzas" element={<AdminFinance />} />
+              <Route path="/admin/abonos" element={<AdminAbonos />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
+      </Router>
+    </GoogleReCaptchaProvider>
   );
 }
 

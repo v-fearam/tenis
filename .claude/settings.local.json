@@ -11,7 +11,9 @@
       "mcp__supabase__get_advisors",
       "mcp__supabase__get_logs",
       "Bash(ls:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

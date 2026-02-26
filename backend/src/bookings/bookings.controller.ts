@@ -14,19 +14,31 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RecaptchaService } from '../common/recaptcha.service';
 
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) { }
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly recaptchaService: RecaptchaService,
+  ) { }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
-  create(
+  async create(
     @Body() createBookingDto: CreateBookingDto,
-    @CurrentUser('id') userId: string,
     @Req() req: any,
   ) {
-    return this.bookingsService.create(createBookingDto, userId, req.accessToken);
+    // Verify reCAPTCHA token
+    if (createBookingDto.recaptcha_token) {
+      await this.recaptchaService.verifyToken(
+        createBookingDto.recaptcha_token,
+        'booking_submit'
+      );
+    }
+
+    const userId = req.user?.id || null;
+    const accessToken = req.accessToken || null;
+    return this.bookingsService.create(createBookingDto, userId, accessToken);
   }
 
   @Get()
