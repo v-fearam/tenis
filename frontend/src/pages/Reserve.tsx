@@ -36,11 +36,20 @@ export default function Reserve() {
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const { user, isAdmin, logout } = useAuth();
     const { executeRecaptcha } = useGoogleReCaptcha();
+    const [isMobile, setIsMobile] = useState(false);
     const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3 });
     const [refreshKey, setRefreshKey] = useState(0);
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
 
     useEffect(() => {
+        const mediaQuery = window.matchMedia('(max-width: 767px)');
+        const handleMediaChange = (event: MediaQueryListEvent) => {
+            setIsMobile(event.matches);
+        };
+
+        setIsMobile(mediaQuery.matches);
+        mediaQuery.addEventListener('change', handleMediaChange);
+
         const fetchConfig = async () => {
             try {
                 const cfg = await api.get<{ clave: string; valor: string }[]>('/config');
@@ -64,6 +73,10 @@ export default function Reserve() {
 
         fetchConfig();
         fetchDashboard();
+
+        return () => {
+            mediaQuery.removeEventListener('change', handleMediaChange);
+        };
     }, [user, refreshKey]);
 
     const handleSubmitBooking = async (details: { type: MatchType; players: Player[]; organizer_name?: string; organizer_email?: string; organizer_phone?: string }) => {
@@ -158,7 +171,7 @@ export default function Reserve() {
                 <div className="reserve-header-actions">
                     {user ? (
                         <>
-                            {isAdmin && (
+                            {isAdmin && !isMobile && (
                                 <button
                                     onClick={() => window.location.href = '/admin'}
                                     className="reserve-btn reserve-btn-admin"

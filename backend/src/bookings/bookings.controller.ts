@@ -54,14 +54,14 @@ export class BookingsController {
   }
 
   @Patch(':id/confirm')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   confirm(@Param('id') id: string, @Req() req: any) {
     return this.bookingsService.confirm(id, req.accessToken);
   }
 
   @Patch(':id/cancel')
-  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   cancel(@Param('id') id: string, @Req() req: any) {
     return this.bookingsService.cancel(id, req.accessToken);
