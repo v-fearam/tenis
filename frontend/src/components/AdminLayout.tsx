@@ -32,9 +32,25 @@ export default function AdminLayout() {
                 flex: 1,
                 marginLeft: marginLeft,
                 transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                minWidth: 0 // Prevent flex items from overflowing
+                minWidth: 0, // Prevent flex items from overflowing
+                display: 'flex',
+                flexDirection: 'column'
             }}>
-                <Outlet />
+                <div style={{ flex: 1 }}>
+                    <Outlet />
+                </div>
+                <footer
+                    style={{
+                        padding: '16px 0 24px',
+                        textAlign: 'center',
+                        fontSize: '0.75rem',
+                        color: 'var(--text-muted)',
+                        opacity: 0.7,
+                    }}
+                    aria-label="Creator attribution"
+                >
+                    by Federico Arambarri
+                </footer>
             </div>
         </div>
     );

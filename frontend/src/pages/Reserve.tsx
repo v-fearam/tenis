@@ -232,6 +232,18 @@ export default function Reserve() {
                     </div>
                 </section>
             </main>
+            <footer
+                style={{
+                    marginTop: '20px',
+                    textAlign: 'center',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    opacity: 0.7,
+                }}
+                aria-label="Creator attribution"
+            >
+                by Federico Arambarri
+            </footer>
         </div >
     );
 }

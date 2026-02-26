@@ -27,6 +27,21 @@ A modern management system for **Club Belgrano** (General Belgrano, Buenos Aires
 ### Membership Tiers
 - Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio — each with different pricing.
 
+## Latest Updates (Feb 2026)
+
+### Security & Bot Protection
+- **Google reCAPTCHA v3 Implementation**: All public booking requests and sensitive actions are now protected by reCAPTCHA v3 with score verification (min: 0.5) to prevent automated booking attempts.
+- **Optional Auth Support**: Guests can now submit reservations with contact details even without an account, protected by reCAPTCHA.
+
+### UI/UX Refactor (Mobile-First)
+- **Compact Dashboard**: Authenticated users now see a clean one-line summary of their next match, account balance, and current membership status.
+- **Responsive Header**: Redesigned header and navigation for better mobile experience, including an "Admin" quick-access button for staff.
+- **Improved Booking Flow**: Streamlined the multi-step booking modal to be more intuitive on small screens.
+
+### Backend Infrastructure
+- **Modular Services**: Reorganized common logic into reusable services like `RecaptchaService`.
+- **Enhanced DTOs**: Improved validation for booking players and contact information.
+
 ## Tech Stack
 
 - **Monorepo**: NPM Workspaces
@@ -47,6 +62,7 @@ tenis/
 │       ├── bloqueos/          # Court blocking (tournaments, maintenance)
 │       ├── canchas/           # Court availability management
 │       ├── config/            # System-wide configuration (timing, slots)
+│       ├── common/            # Shared utilities (reCAPTCHA verification, error filters)
 │       └── supabase/          # Supabase client service
 ├── frontend/                  # Vite + React UI
 │   └── src/
