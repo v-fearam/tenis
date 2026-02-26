@@ -5,7 +5,7 @@ import { Toast, type ToastType } from '../components/Toast';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Calendar as CalendarIcon, Wallet, CreditCard, ChevronRight, LayoutGrid } from 'lucide-react';
+import { Calendar as CalendarIcon, Wallet, CreditCard } from 'lucide-react';
 import '../index.css';
 import logo from '../assets/logo.jpg';
 
@@ -243,18 +243,6 @@ export default function Reserve() {
             )}
 
             <main className="animate-slide-up">
-                {!user && (
-                    <div className="card glass" style={{ marginBottom: '32px', maxWidth: '400px', borderLeft: '4px solid var(--brand-blue)' }}>
-                        <h3 style={{ marginBottom: '12px', fontSize: '1.25rem', fontWeight: '800' }}>Bienvenido</h3>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1rem', marginBottom: '20px' }}>
-                            Iniciá sesión para gestionar tus reservas y acceder a beneficios exclusivos.
-                        </p>
-                        <a href="/login" className="btn-primary" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            Iniciar Sesión <ChevronRight size={18} />
-                        </a>
-                    </div>
-                )}
-
                 <section>
                     <div className="card glass" style={{ minHeight: '500px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>

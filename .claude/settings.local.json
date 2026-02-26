@@ -9,7 +9,8 @@
       "mcp__supabase__get_project_url",
       "Bash(npm run build:*)",
       "mcp__supabase__get_advisors",
-      "mcp__supabase__get_logs"
+      "mcp__supabase__get_logs",
+      "Bash(ls:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
