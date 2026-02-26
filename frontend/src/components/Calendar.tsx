@@ -249,9 +249,10 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     display: 'flex',
                     gap: '12px',
                     overflowX: 'auto',
-                    paddingBottom: '4px',
+                    paddingBottom: '8px',
                     scrollbarWidth: 'none',
-                    flex: '1'
+                    flex: '1',
+                    WebkitOverflowScrolling: 'touch'
                 }}>
                     {nextSevenDays.map((date, i) => {
                         const { dayName, dayNum } = formatDate(date);
@@ -261,8 +262,9 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                 key={i}
                                 onClick={() => setSelectedDate(date)}
                                 style={{
-                                    minWidth: '60px',
-                                    padding: '10px 8px',
+                                    minWidth: '70px',
+                                    minHeight: 'var(--touch-optimal)',
+                                    padding: '12px 10px',
                                     borderRadius: 'var(--radius-md)',
                                     background: isSelected ? 'var(--brand-blue)' : 'var(--brand-blue-pastel)',
                                     color: isSelected ? 'white' : 'var(--brand-blue)',
@@ -270,11 +272,16 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
                                     boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
-                                    transform: isSelected ? 'scale(1.05)' : 'scale(1)'
+                                    transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                                    WebkitTapHighlightColor: 'transparent',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
                                 }}
                             >
-                                <div style={{ fontSize: '0.7rem', fontWeight: '600', opacity: 0.8 }}>{dayName}</div>
-                                <div style={{ fontSize: '1.1rem', fontWeight: '800' }}>{dayNum}</div>
+                                <div style={{ fontSize: '0.75rem', fontWeight: '600', opacity: 0.9 }}>{dayName}</div>
+                                <div style={{ fontSize: '1.25rem', fontWeight: '800', marginTop: '2px' }}>{dayNum}</div>
                             </div>
                         );
                     })}
@@ -282,40 +289,46 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
 
                 {selectedSlot && (
                     <div className="glass animate-slide-up" style={{
-                        padding: '12px 16px',
+                        padding: '16px',
                         borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--brand-blue-pastel)',
+                        border: '2px solid var(--brand-blue)',
                         display: 'flex',
-                        gap: '16px',
-                        alignItems: 'center',
+                        flexDirection: 'column',
+                        gap: '12px',
                         background: 'var(--bg-card)',
-                        boxShadow: 'var(--shadow-sm)'
+                        boxShadow: 'var(--shadow-md)',
+                        minWidth: '100%'
                     }}>
-                        <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontWeight: '700', color: 'var(--brand-blue)', fontSize: '0.9rem' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontWeight: '700', color: 'var(--brand-blue)', fontSize: '1.1rem' }}>
                                 Cancha {selectedCourt} • {selectedSlot} hs
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                                 {formatDate(selectedDate).dayName} {formatDate(selectedDate).dayNum}
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button className="btn-secondary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={() => { setSelectedCourt(null); setSelectedSlot(null); }}>Cancelar</button>
-                            <button className="btn-primary" style={{ padding: '8px 14px', fontSize: '0.8rem' }} onClick={handleConfirmAction}>Continuar</button>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <button className="btn-secondary" onClick={() => { setSelectedCourt(null); setSelectedSlot(null); }}>Cancelar</button>
+                            <button className="btn-primary" onClick={handleConfirmAction}>Continuar</button>
                         </div>
                     </div>
                 )}
             </div>
 
-            <div className="calendar-grid" style={{
-                display: 'grid',
-                gridTemplateColumns: '80px repeat(5, 1fr)',
-                gap: '8px',
+            <div style={{
                 maxHeight: '70vh',
                 overflowY: 'auto',
-                position: 'relative',
-                paddingRight: '4px'
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                position: 'relative'
             }}>
+                <div className="calendar-grid" style={{
+                    display: 'grid',
+                    gridTemplateColumns: '80px repeat(5, minmax(100px, 1fr))',
+                    gap: '8px',
+                    minWidth: 'min-content',
+                    paddingRight: '4px'
+                }}>
                 {/* Header: Courts (Sticky Top) */}
                 <div style={{
                     background: 'var(--bg-card)',
@@ -323,7 +336,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     top: 0,
                     left: 0,
                     zIndex: 20,
-                    height: '50px',
+                    height: 'var(--touch-optimal)',
                     borderBottom: '2px solid var(--brand-blue-pastel)',
                     borderRight: '1px solid var(--border)'
                 }}></div>
@@ -332,15 +345,16 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '10px',
+                        padding: '10px 4px',
                         fontWeight: '700',
+                        fontSize: '0.9rem',
                         color: 'var(--brand-blue)',
                         borderBottom: '2px solid var(--brand-blue-pastel)',
                         background: 'var(--bg-card)',
                         position: 'sticky',
                         top: 0,
                         zIndex: 10,
-                        height: '50px'
+                        height: 'var(--touch-optimal)'
                     }}>
                         {court.nombre}
                     </div>
@@ -353,7 +367,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '0.85rem',
+                            fontSize: '0.9rem',
                             color: 'var(--text-muted)',
                             fontWeight: '600',
                             position: 'sticky',
@@ -361,7 +375,9 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                             background: 'var(--bg-card)',
                             zIndex: 15,
                             borderRight: '1px solid var(--border)',
-                            paddingRight: '8px'
+                            paddingRight: '8px',
+                            minHeight: 'var(--touch-optimal)',
+                            height: 'var(--touch-optimal)'
                         }}>
                             {time}
                         </div>
@@ -423,7 +439,8 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                 className="glass"
                                 title={tooltip}
                                 style={{
-                                    height: '50px',
+                                    minHeight: 'var(--touch-optimal)',
+                                    height: 'var(--touch-optimal)',
                                     borderRadius: 'var(--radius-sm)',
                                     cursor: isSlotOccupied ? 'not-allowed' : 'pointer',
                                     display: 'flex',
@@ -436,7 +453,9 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                     borderTop: isSelected && !isStart ? 'none' : (isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)'),
                                     borderBottom: isSelected && timeSlots.indexOf(time) < timeSlots.indexOf(selectedSlot!) + config.blocksPerTurn - 1 ? 'none' : (isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)'),
                                     zIndex: isSelected ? 2 : 1,
-                                    boxShadow: isSelected ? 'var(--shadow-sm)' : 'none'
+                                    boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
+                                    WebkitTapHighlightColor: 'transparent',
+                                    touchAction: 'manipulation'
                                 }}
                             >
                                 {labelContent}
@@ -451,6 +470,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                         </React.Fragment>
                     );
                 })}
+                </div>
             </div>
 
 

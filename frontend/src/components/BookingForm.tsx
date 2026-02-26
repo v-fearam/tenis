@@ -174,15 +174,26 @@ function TypeCard({ selected, onClick, icon, title, subtitle }: {
     <button
       onClick={onClick}
       style={{
-        flex: 1, padding: '20px', borderRadius: 'var(--radius-md)',
-        border: selected ? '2px solid var(--brand-blue)' : '2px solid var(--border)',
+        flex: 1,
+        padding: '24px 20px',
+        minHeight: '120px',
+        borderRadius: 'var(--radius-md)',
+        border: selected ? '3px solid var(--brand-blue)' : '2px solid var(--border)',
         background: selected ? 'var(--brand-blue-pastel)' : 'var(--bg-card)',
-        cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s',
+        cursor: 'pointer',
+        textAlign: 'center',
+        transition: 'all 0.2s',
+        WebkitTapHighlightColor: 'transparent',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: selected ? 'var(--shadow-md)' : 'none'
       }}
     >
-      <div style={{ fontSize: '1.5rem', marginBottom: '8px', fontWeight: '800' }}>{icon}</div>
-      <div style={{ fontWeight: '700', fontSize: '1rem' }}>{title}</div>
-      <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' }}>{subtitle}</div>
+      <div style={{ fontSize: '2rem', marginBottom: '8px', fontWeight: '800' }}>{icon}</div>
+      <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>{title}</div>
+      <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '4px' }}>{subtitle}</div>
     </button>
   );
 }
@@ -194,11 +205,17 @@ function PlayerSlot({ index, player, isOrganizer, onEdit, onClear }: {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: '12px',
-      padding: '12px 14px', borderRadius: 'var(--radius-sm)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '14px 16px',
+      minHeight: 'var(--touch-optimal)',
+      borderRadius: 'var(--radius-sm)',
       border: '1px solid var(--border)',
       background: filled ? 'var(--bg-main)' : 'var(--bg-card)',
       cursor: filled && isOrganizer ? 'default' : 'pointer',
+      WebkitTapHighlightColor: 'transparent',
+      transition: 'all 0.2s'
     }} onClick={!filled ? onEdit : undefined}>
       <div style={{
         width: '32px', height: '32px', borderRadius: '50%',
@@ -297,24 +314,44 @@ function PlayerEditor({ index, onSelect, onCancel }: {
           <button
             onClick={() => setMode('socio')}
             style={{
-              flex: 1, padding: '14px 12px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', background: 'var(--bg-card)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
+              flex: 1,
+              padding: '16px 12px',
+              minHeight: 'var(--touch-optimal)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+              transition: 'all 0.2s'
             }}
           >
-            <UserCheck size={18} style={{ color: '#1E8449' }} />
-            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Socio</span>
+            <UserCheck size={20} style={{ color: '#1E8449' }} />
+            <span style={{ fontWeight: '600', fontSize: '1rem' }}>Socio</span>
           </button>
           <button
             onClick={() => setMode('guest')}
             style={{
-              flex: 1, padding: '14px 12px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', background: 'var(--bg-card)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
+              flex: 1,
+              padding: '16px 12px',
+              minHeight: 'var(--touch-optimal)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-card)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+              transition: 'all 0.2s'
             }}
           >
-            <UserPlus size={18} style={{ color: 'var(--clay-orange)' }} />
-            <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>Invitado</span>
+            <UserPlus size={20} style={{ color: 'var(--clay-orange)' }} />
+            <span style={{ fontWeight: '600', fontSize: '1rem' }}>Invitado</span>
           </button>
         </div>
       </div>
@@ -334,7 +371,7 @@ function PlayerEditor({ index, onSelect, onCancel }: {
             <X size={16} />
           </button>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
             type="text"
             autoFocus
@@ -346,17 +383,17 @@ function PlayerEditor({ index, onSelect, onCancel }: {
                 onSelect({ guest_name: guestName.trim(), display_name: guestName.trim(), is_socio: false, user_id: undefined });
               }
             }}
+            className="form-input"
             style={{
-              flex: 1, padding: '10px 14px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border)', fontSize: '0.95rem', outline: 'none',
-              boxSizing: 'border-box',
+              flex: '1 1 200px',
+              minHeight: 'var(--touch-min)'
             }}
           />
           <button
             className="btn-primary"
             disabled={!guestName.trim()}
             onClick={() => onSelect({ guest_name: guestName.trim(), display_name: guestName.trim(), is_socio: false, user_id: undefined })}
-            style={{ padding: '10px 16px', opacity: guestName.trim() ? 1 : 0.5 }}
+            style={{ opacity: guestName.trim() ? 1 : 0.5, flex: '0 0 auto' }}
           >
             Agregar
           </button>
@@ -379,17 +416,18 @@ function PlayerEditor({ index, onSelect, onCancel }: {
       </div>
 
       <div style={{ position: 'relative', marginBottom: results.length > 0 || searching ? '8px' : 0 }}>
-        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+        <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 1 }} />
         <input
           type="text"
           autoFocus
           placeholder="Buscar por nombre, DNI o email..."
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
+          className="form-input"
           style={{
-            width: '100%', padding: '10px 10px 10px 36px', borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border)', fontSize: '0.95rem', outline: 'none',
-            boxSizing: 'border-box', background: 'white',
+            paddingLeft: '42px',
+            background: 'white',
+            minHeight: 'var(--touch-min)'
           }}
         />
       </div>
@@ -400,9 +438,12 @@ function PlayerEditor({ index, onSelect, onCancel }: {
 
       {results.length > 0 && (
         <div style={{
-          maxHeight: '180px', overflowY: 'auto',
-          borderRadius: 'var(--radius-sm)', background: 'white',
+          maxHeight: '240px',
+          overflowY: 'auto',
+          borderRadius: 'var(--radius-sm)',
+          background: 'white',
           border: '1px solid var(--border)',
+          WebkitOverflowScrolling: 'touch'
         }}>
           {results.map((u) => (
             <div
@@ -414,15 +455,21 @@ function PlayerEditor({ index, onSelect, onCancel }: {
                 is_socio: true,
               })}
               style={{
-                padding: '10px 14px', cursor: 'pointer',
+                padding: '14px 16px',
+                minHeight: 'var(--touch-optimal)',
+                cursor: 'pointer',
                 borderBottom: '1px solid var(--border)',
-                transition: 'background 0.1s',
+                transition: 'background 0.15s',
+                WebkitTapHighlightColor: 'transparent',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center'
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = '#E8F8F5')}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
             >
-              <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{u.nombre || '—'}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ fontWeight: '600', fontSize: '1rem' }}>{u.nombre || '—'}</div>
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                 {u.email} {u.dni ? `• DNI ${u.dni}` : ''}
               </div>
             </div>

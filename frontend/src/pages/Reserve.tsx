@@ -118,48 +118,121 @@ export default function Reserve() {
                 />
             )}
 
-            <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Compact Header - Saves Vertical Space */}
+            <header style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '20px',
+                gap: '16px',
+                flexWrap: 'wrap'
+            }}>
+                {/* Logo + Title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1', minWidth: '200px' }}>
                     <img
                         src={logo}
                         alt="Club Belgrano Logo"
-                        style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-blue-pastel)' }}
+                        style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '2px solid var(--brand-blue-pastel)'
+                        }}
                     />
                     <div>
-                        <h1 style={{ color: 'var(--brand-blue)', fontSize: '2rem', fontWeight: '800' }}>CLUB BELGRANO</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>Gestión de Canchas</p>
+                        <h1 style={{
+                            color: 'var(--brand-blue)',
+                            fontSize: '1.5rem',
+                            fontWeight: '800',
+                            lineHeight: '1.2',
+                            margin: 0
+                        }}>
+                            CLUB BELGRANO
+                        </h1>
+                        <p style={{
+                            color: 'var(--text-muted)',
+                            fontSize: '0.8rem',
+                            margin: 0,
+                            lineHeight: '1.2'
+                        }}>
+                            Gestión de Canchas
+                        </p>
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                {/* Compact User Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                     {user ? (
                         <>
                             {isAdmin && (
                                 <button
-                                    className="btn-primary"
                                     onClick={() => window.location.href = '/admin'}
-                                    style={{ background: 'var(--brand-blue)', padding: '10px 20px', fontSize: '0.9rem' }}
+                                    style={{
+                                        background: 'var(--brand-blue-pastel)',
+                                        color: 'var(--brand-blue)',
+                                        border: 'none',
+                                        padding: '8px 14px',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.85rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap'
+                                    }}
                                 >
-                                    Panel Admin
+                                    Admin
                                 </button>
                             )}
-                            <div style={{ textAlign: 'right' }}>
-                                <div className="card-value" style={{ fontSize: '1.2rem' }}>
-                                    Hola, {user.nombre || user.email?.split('@')[0] || 'Socio'}!
-                                </div>
-                                <p
-                                    style={{ color: 'var(--brand-blue)', fontWeight: '600', cursor: 'pointer', margin: 0, fontSize: '0.9rem' }}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '6px 12px',
+                                background: 'var(--bg-card)',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border)'
+                            }}>
+                                <span style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: '600',
+                                    color: 'var(--text-main)',
+                                    whiteSpace: 'nowrap'
+                                }}>
+                                    {user.nombre || user.email?.split('@')[0] || 'Socio'}
+                                </span>
+                                <button
                                     onClick={handleLogout}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--brand-blue)',
+                                        fontSize: '0.8rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        textDecoration: 'underline',
+                                        whiteSpace: 'nowrap'
+                                    }}
                                 >
-                                    Cerrar Sesión
-                                </p>
+                                    Salir
+                                </button>
                             </div>
                         </>
                     ) : (
                         <a
                             href="/login"
-                            className="btn-primary"
-                            style={{ textDecoration: 'none', display: 'inline-block' }}
+                            style={{
+                                background: 'var(--brand-blue)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                textDecoration: 'none',
+                                display: 'inline-block',
+                                whiteSpace: 'nowrap'
+                            }}
                         >
                             Iniciar Sesión
                         </a>
@@ -167,87 +240,47 @@ export default function Reserve() {
                 </div>
             </header>
 
-            {/* Header Metrics */}
-            {/* Dashboard Header Bento Grid */}
-            {user && (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gridAutoRows: 'minmax(160px, auto)',
-                    gap: '20px',
-                    marginBottom: '40px'
-                }}>
-                    {/* Next Match - Larger (2 columns) */}
-                    <div className="card card-accent-blue" style={{ gridColumn: 'span 2' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div className="card-title">Próximo Partido</div>
-                            <CalendarIcon size={18} style={{ color: 'var(--brand-blue)' }} />
-                        </div>
-                        {dashboard?.nextMatch ? (
-                            <>
-                                <div className="card-value" style={{ fontSize: '2rem' }}>
-                                    {(() => {
-                                        const [year, month, day] = dashboard.nextMatch.fecha.split('-').map(Number);
-                                        const date = new Date(year, month - 1, day);
-                                        return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-                                    })()} • {dashboard.nextMatch.hora_inicio.slice(0, 5)} hs
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                                    <div className="badge" style={{ background: 'var(--brand-blue-pastel)', color: 'var(--brand-blue)' }}>
-                                        {dashboard.nextMatch.canchas.nombre}
-                                    </div>
-                                    <div className="badge" style={{ background: 'var(--bg-main)', color: 'var(--text-muted)' }}>
-                                        {dashboard.nextMatch.type === 'single' ? 'Singles' : 'Dobles'}
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="card-value" style={{ fontSize: '1.1rem', color: 'var(--text-muted)', paddingTop: '12px' }}>
-                                No tienes partidos programados para hoy o el futuro.
+            {/* Compact Dashboard Summary - Single Line (hidden on small mobile) */}
+            {user && dashboard && (
+                <div className="dashboard-compact">
+                    {/* Next Match */}
+                    {dashboard.nextMatch && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
+                            <CalendarIcon size={16} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
+                            <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
+                                {(() => {
+                                    const [year, month, day] = dashboard.nextMatch.fecha.split('-').map(Number);
+                                    const date = new Date(year, month - 1, day);
+                                    return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+                                })()} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {/* Balance */}
-                    <div className="card card-accent-orange">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div className="card-title">Cuenta Corriente</div>
-                            <Wallet size={18} style={{ color: '#27AE60' }} />
-                        </div>
-                        <div className="card-value" style={{ color: '#27AE60' }}>$0 <span style={{ fontSize: '1rem' }}>SAR</span></div>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>Tu cuenta está al día</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(39, 174, 96, 0.1)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
+                        <Wallet size={16} style={{ color: '#27AE60', flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#27AE60' }}>$0</span>
                     </div>
 
                     {/* Abono */}
-                    <div className="card card-accent-blue">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div className="card-title">Abono Restante</div>
-                            <CreditCard size={18} style={{ color: 'var(--brand-blue)' }} />
+                    {dashboard.abono && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
+                            <CreditCard size={16} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
+                                {dashboard.abono.tipo === 'libre' ? 'Libre' : `${dashboard.abono.creditos_disponibles}/${dashboard.abono.creditos_totales}`}
+                            </span>
                         </div>
-                        {dashboard?.abono ? (
-                            <>
-                                <div className="card-value">
-                                    {dashboard.abono.tipo === 'libre' ? '∞' : `${dashboard.abono.creditos_disponibles} / ${dashboard.abono.creditos_totales}`}
-                                </div>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '8px' }}>
-                                    Plan {dashboard.abono.tipo.toUpperCase()} activo
-                                </p>
-                            </>
-                        ) : (
-                            <div className="card-value" style={{ fontSize: '1.1rem', color: 'var(--text-muted)', paddingTop: '12px' }}>
-                                Sin abono activo
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
             )}
 
             <main className="animate-slide-up">
                 <section>
-                    <div className="card glass" style={{ minHeight: '500px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '1.5rem', fontWeight: '700' }}>Reservar Cancha</h2>
-                        </div>
+                    <div className="card glass" style={{ minHeight: '500px', padding: '20px' }}>
+                        <h2 style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '16px', color: 'var(--brand-blue)' }}>
+                            Reservar Cancha
+                        </h2>
 
                         <Calendar
                             onConfirm={(courtId, slot) => setBookingData({ courtId, slot })}
