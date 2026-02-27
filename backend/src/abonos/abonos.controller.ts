@@ -1,58 +1,69 @@
-import { Controller, Get, Post, Patch, Delete, Body, UseGuards, Req, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  UseGuards,
+  Req,
+  Param,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { AbonosService } from './abonos.service';
-import { AssignAbonoDto, CreateAbonoTypeDto, UpdateAbonoTypeDto } from './dto/abono.dto';
+import {
+  AssignAbonoDto,
+  CreateAbonoTypeDto,
+  UpdateAbonoTypeDto,
+} from './dto/abono.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('abonos')
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 export class AbonosController {
-    constructor(private readonly abonosService: AbonosService) {}
+  constructor(private readonly abonosService: AbonosService) {}
 
-    // --- TYPES CRUD ---
+  // --- TYPES CRUD ---
 
-    @Get('types')
-    @Roles('admin')
-    findAllTypes(@Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.findAllTypes(token);
-    }
+  @Get('types')
+  findAllTypes(@Req() req: any) {
+    return this.abonosService.findAllTypes(req.accessToken);
+  }
 
-    @Post('types')
-    @Roles('admin')
-    createType(@Body() dto: CreateAbonoTypeDto, @Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.createType(dto, token);
-    }
+  @Post('types')
+  createType(@Body() dto: CreateAbonoTypeDto, @Req() req: any) {
+    return this.abonosService.createType(dto, req.accessToken);
+  }
 
-    @Patch('types/:id')
-    @Roles('admin')
-    updateType(@Param('id') id: string, @Body() dto: UpdateAbonoTypeDto, @Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.updateType(id, dto, token);
-    }
+  @Patch('types/:id')
+  updateType(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateAbonoTypeDto,
+    @Req() req: any,
+  ) {
+    return this.abonosService.updateType(id, dto, req.accessToken);
+  }
 
-    @Delete('types/:id')
-    @Roles('admin')
-    deleteType(@Param('id') id: string, @Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.deleteType(id, token);
-    }
+  @Delete('types/:id')
+  deleteType(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    return this.abonosService.deleteType(id, req.accessToken);
+  }
 
-    // --- ASSIGNMENT ---
+  // --- ASSIGNMENT ---
 
-    @Post('assign')
-    @Roles('admin')
-    assign(@Body() dto: AssignAbonoDto, @Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.assign(dto, token);
-    }
+  @Post('assign')
+  assign(@Body() dto: AssignAbonoDto, @Req() req: any) {
+    return this.abonosService.assign(dto, req.accessToken);
+  }
 
-    @Delete('assign/:socioId')
-    @Roles('admin')
-    removeAbono(@Param('socioId') socioId: string, @Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.removeAbono(socioId, token);
-    }
+  @Delete('assign/:socioId')
+  removeAbono(
+    @Param('socioId', ParseUUIDPipe) socioId: string,
+    @Req() req: any,
+  ) {
+    return this.abonosService.removeAbono(socioId, req.accessToken);
+  }
 }

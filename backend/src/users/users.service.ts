@@ -197,7 +197,11 @@ export class UsersService {
     return data;
   }
 
-  async updateSocio(userId: string, updateSocioDto: UpdateSocioDto, accessToken: string) {
+  async updateSocio(
+    userId: string,
+    updateSocioDto: UpdateSocioDto,
+    accessToken: string,
+  ) {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
     const { data: existing } = await client
@@ -252,17 +256,21 @@ export class UsersService {
     // 1. Fetch next match
     const { data: turnos, error: turnosError } = await client
       .from('turnos')
-      .select(`
+      .select(
+        `
         id,
         fecha,
         hora_inicio,
         type:tipo_partido,
         canchas:id_cancha (nombre),
         turno_jugadores!inner (id_persona)
-      `)
+      `,
+      )
       .eq('turno_jugadores.id_persona', userId)
       .eq('estado', 'confirmado')
-      .or(`fecha.gt.${now.split('T')[0]},and(fecha.eq.${now.split('T')[0]},hora_inicio.gte.${new Date().toTimeString().split(' ')[0]})`)
+      .or(
+        `fecha.gt.${now.split('T')[0]},and(fecha.eq.${now.split('T')[0]},hora_inicio.gte.${new Date().toTimeString().split(' ')[0]})`,
+      )
       .order('fecha', { ascending: true })
       .order('hora_inicio', { ascending: true })
       .limit(1);
@@ -270,23 +278,45 @@ export class UsersService {
     if (turnosError) throw turnosError;
     const nextMatch = turnos?.[0] || null;
 
-    // 2. Fetch membership
-    const { data: socio, error: socioError } = await client
+    // 2. Fetch membership (socio + tipo_abono)
+    const { data: socio } = await client
       .from('socios')
-      .select(`
-        *,
-        abonos (*)
-      `)
+      .select(
+        `
+        id,
+        nro_socio,
+        id_tipo_abono,
+        creditos_disponibles,
+        tipos_abono:id_tipo_abono (id, nombre, creditos, precio, color)
+      `,
+      )
       .eq('id_usuario', userId)
-      .eq('abonos.activo', true)
       .single();
 
-    // It's possible the user is not a socio or doesn't have an active abono
-    const abono = socio?.abonos?.[0] || null;
+    let abono: {
+      tipo: string;
+      creditos_totales: number;
+      creditos_disponibles: number;
+      color: string | null;
+    } | null = null;
+
+    if (socio?.tipos_abono) {
+      const tipo = socio.tipos_abono as any;
+      abono = {
+        tipo: tipo.nombre,
+        creditos_totales: tipo.creditos,
+        creditos_disponibles: socio.creditos_disponibles ?? 0,
+        color: tipo.color || null,
+      };
+    }
+
+    // Determine membership status for the user
+    const isSocio = !!socio;
 
     return {
       nextMatch,
       abono,
+      isSocio,
     };
   }
 }

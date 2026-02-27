@@ -16,16 +16,20 @@ export class RecaptchaService {
   private readonly logger = new Logger(RecaptchaService.name);
   private readonly secretKey: string;
   private readonly minScore: number = 0.5;
-  private readonly verifyUrl = 'https://www.google.com/recaptcha/api/siteverify';
+  private readonly verifyUrl =
+    'https://www.google.com/recaptcha/api/siteverify';
 
   constructor(private configService: ConfigService) {
-    this.secretKey = this.configService.get<string>('RECAPTCHA_SECRET_KEY') || '';
+    this.secretKey =
+      this.configService.get<string>('RECAPTCHA_SECRET_KEY') || '';
   }
 
   async verifyToken(token: string, expectedAction?: string): Promise<void> {
     // Skip verification if no secret key is configured (development mode)
     if (!this.secretKey) {
-      this.logger.warn('reCAPTCHA secret key not configured - skipping verification');
+      this.logger.warn(
+        'reCAPTCHA secret key not configured - skipping verification',
+      );
       return;
     }
 
@@ -42,7 +46,7 @@ export class RecaptchaService {
             secret: this.secretKey,
             response: token,
           },
-        }
+        },
       );
 
       const data = response.data;
@@ -55,27 +59,30 @@ export class RecaptchaService {
       // Check score (v3 only)
       if (data.score !== undefined && data.score < this.minScore) {
         this.logger.warn(
-          `reCAPTCHA score too low: ${data.score} (min: ${this.minScore})`
+          `reCAPTCHA score too low: ${data.score} (min: ${this.minScore})`,
         );
         throw new BadRequestException(
-          'Verificación de seguridad falló. Por favor, intente nuevamente.'
+          'Verificación de seguridad falló. Por favor, intente nuevamente.',
         );
       }
 
       // Verify action matches (optional)
       if (expectedAction && data.action !== expectedAction) {
         this.logger.warn(
-          `reCAPTCHA action mismatch: expected ${expectedAction}, got ${data.action}`
+          `reCAPTCHA action mismatch: expected ${expectedAction}, got ${data.action}`,
         );
         throw new BadRequestException('Acción de reCAPTCHA inválida');
       }
 
       this.logger.log(
-        `reCAPTCHA verification successful - score: ${data.score}, action: ${data.action}`
+        `reCAPTCHA verification successful - score: ${data.score}, action: ${data.action}`,
       );
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        this.logger.error('Error verifying reCAPTCHA with Google', error.message);
+        this.logger.error(
+          'Error verifying reCAPTCHA with Google',
+          error.message,
+        );
         throw new BadRequestException('Error al verificar reCAPTCHA');
       }
       throw error;

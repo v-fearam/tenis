@@ -206,22 +206,19 @@ export default function AdminAbonos() {
     <div className="container">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      {/* Header */}
-      <header style={{ marginBottom: '32px' }}>
-        <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.5rem', fontWeight: '800' }}>
-          Gestión de Abonos
-        </h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-          Tipos de abono y asignación a socios
-        </p>
-      </header>
-
-      {/* === SECTION 1: Tipos de Abono === */}
-      <div style={{ marginBottom: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Tipos de Abono</h2>
-          <button className="btn-primary" onClick={openCreateType} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Plus size={18} /> Nuevo Tipo
+      {/* Header + Tipos inline */}
+      <div style={{ marginBottom: '14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div>
+            <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.3rem', fontWeight: '800', lineHeight: 1.2 }}>
+              Gestión de Abonos
+            </h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+              Tipos de abono y asignación a socios
+            </p>
+          </div>
+          <button className="btn-primary" onClick={openCreateType} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.85rem', minHeight: 'auto' }}>
+            <Plus size={16} /> Nuevo Tipo
           </button>
         </div>
 
@@ -230,39 +227,34 @@ export default function AdminAbonos() {
             No hay tipos de abono creados.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {tipos.map(tipo => (
-              <div key={tipo.id} className="card" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{
-                  position: 'absolute', top: '-10px', right: '-10px',
-                  width: '80px', height: '80px',
-                  background: tipo.color || '#3498DB', opacity: 0.1, borderRadius: '50%',
-                }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div key={tipo.id} className="card" style={{ padding: '10px 14px', position: 'relative', overflow: 'hidden', flex: '1 1 180px', maxWidth: '260px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   <div style={{
-                    padding: '10px', borderRadius: '12px',
+                    padding: '5px', borderRadius: '8px',
                     background: (tipo.color || '#3498DB') + '22',
-                    color: tipo.color || '#3498DB',
+                    color: tipo.color || '#3498DB', display: 'flex',
                   }}>
-                    <TrendingUp size={24} />
+                    <TrendingUp size={15} />
                   </div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', flex: 1 }}>{tipo.nombre}</h3>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button onClick={() => openEditType(tipo)} title="Editar" style={iconBtnStyle}>
-                      <Edit2 size={14} />
-                    </button>
-                    <button onClick={() => handleDeleteType(tipo)} title="Eliminar" style={{ ...iconBtnStyle, color: '#E74C3C' }}>
-                      <Trash2 size={14} />
-                    </button>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '800', flex: 1 }}>{tipo.nombre}</h3>
+                  <button onClick={() => openEditType(tipo)} title="Editar" style={iconBtnStyle}>
+                    <Edit2 size={12} />
+                  </button>
+                  <button onClick={() => handleDeleteType(tipo)} title="Eliminar" style={{ ...iconBtnStyle, color: '#E74C3C' }}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: '900' }}>
+                    ${tipo.precio.toLocaleString()}
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '500' }}>/mes</span>
                   </div>
-                </div>
-                <div style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '8px' }}>
-                  ${tipo.precio.toLocaleString()}
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>/mes</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
-                  <CheckCircle2 size={16} style={{ color: 'var(--brand-green, #27AE60)' }} />
-                  <span><strong>{tipo.creditos}</strong> créditos</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    <CheckCircle2 size={12} style={{ color: 'var(--brand-green, #27AE60)' }} />
+                    <span><strong style={{ color: 'var(--text-main)' }}>{tipo.creditos}</strong> créd.</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -272,10 +264,10 @@ export default function AdminAbonos() {
 
       {/* === SECTION 2: Socios y Asignación === */}
       <div>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px' }}>Asignación de Abonos</h2>
+        <h2 style={{ fontSize: '0.95rem', fontWeight: '700', marginBottom: '8px' }}>Asignación de Abonos</h2>
 
         {/* Search */}
-        <div className="card" style={{ marginBottom: '24px', padding: '16px' }}>
+        <div className="card" style={{ marginBottom: '10px', padding: '10px' }}>
           <div style={{ position: 'relative' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
@@ -544,12 +536,12 @@ function FormField({ label, required, children }: { label: string; required?: bo
 }
 
 const thStyle: React.CSSProperties = {
-  padding: '14px 16px', textAlign: 'left', fontSize: '0.75rem',
+  padding: '10px 14px', textAlign: 'left', fontSize: '0.75rem',
   fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: '14px 16px', fontSize: '0.9rem',
+  padding: '10px 14px', fontSize: '0.875rem',
 };
 
 const inputStyle: React.CSSProperties = {

@@ -4,9 +4,9 @@ import { ConfigController } from './config.controller';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    controllers: [ConfigController],
-    providers: [ConfigService],
-    exports: [ConfigService],
+  imports: [SupabaseModule],
+  controllers: [ConfigController],
+  providers: [ConfigService],
+  exports: [ConfigService],
 })
-export class ConfigSistemaModule { }
+export class ConfigSistemaModule {}

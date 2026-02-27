@@ -127,12 +127,10 @@ export default function AdminBloqueos() {
         <div className="container">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-            <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div>
-                        <h1 style={{ color: 'var(--brand-blue)', fontSize: '2rem', fontWeight: '800' }}>GESTIÓN DE BLOQUEOS</h1>
-                        <p style={{ color: 'var(--text-muted)' }}>Cierre de canchas por mantenimiento, torneos o clases.</p>
-                    </div>
+            <header style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.4rem', fontWeight: '800' }}>Gestión de Bloqueos</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Cierre de canchas por mantenimiento, torneos o clases</p>
                 </div>
                 <button
                     className="btn-primary"
@@ -145,10 +143,10 @@ export default function AdminBloqueos() {
             </header>
 
             {isCreating && (
-                <section className="animate-slide-up" style={{ marginBottom: '40px' }}>
-                    <div className="card glass" style={{ padding: '30px', border: '1px solid var(--brand-blue-pastel)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-                            <h2 style={{ fontSize: '1.25rem', fontWeight: '800', color: 'var(--brand-blue)' }}>Configurar Bloqueo</h2>
+                <section className="animate-slide-up" style={{ marginBottom: '16px' }}>
+                    <div className="card glass" style={{ padding: '20px', border: '1px solid var(--brand-blue-pastel)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h2 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--brand-blue)' }}>Configurar Bloqueo</h2>
                             <button
                                 onClick={() => setIsExplaining(!isExplaining)}
                                 style={{ background: 'none', border: 'none', color: 'var(--brand-blue)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
@@ -164,7 +162,7 @@ export default function AdminBloqueos() {
                             </div>
                         )}
 
-                        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                        <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
                             <div className="form-group">
                                 <label>Cancha</label>
                                 <select
@@ -245,8 +243,8 @@ export default function AdminBloqueos() {
                                 />
                             </div>
 
-                            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                                <button type="submit" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 24px' }}>
+                            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                                <button type="submit" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.9rem' }}>
                                     <Save size={20} />
                                     Guardar Bloqueo(s)
                                 </button>
@@ -272,9 +270,9 @@ export default function AdminBloqueos() {
                     />
                 </div>
 
-                <div className="card" style={{ minHeight: '400px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--brand-blue)' }}>Bloqueos Registrados</h2>
+                <div className="card" style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <h2 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--brand-blue)' }}>Bloqueos Registrados</h2>
                         <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{pagination.meta?.totalItems || 0} resultado(s)</span>
                     </div>
 
@@ -282,12 +280,12 @@ export default function AdminBloqueos() {
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--brand-blue-pastel)' }}>
-                                    <th style={{ textAlign: 'left', padding: '15px', color: 'var(--brand-blue)' }}>Cancha</th>
-                                    <th style={{ textAlign: 'left', padding: '15px', color: 'var(--brand-blue)' }}>Fecha</th>
-                                    <th style={{ textAlign: 'left', padding: '15px', color: 'var(--brand-blue)' }}>Horario</th>
-                                    <th style={{ textAlign: 'left', padding: '15px', color: 'var(--brand-blue)' }}>Tipo</th>
-                                    <th style={{ textAlign: 'left', padding: '15px', color: 'var(--brand-blue)' }}>Descripción</th>
-                                    <th style={{ textAlign: 'center', padding: '15px', color: 'var(--brand-blue)' }}>Acciones</th>
+                                    <th style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Cancha</th>
+                                    <th style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Fecha</th>
+                                    <th style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Horario</th>
+                                    <th style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Tipo</th>
+                                    <th style={{ textAlign: 'left', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Descripción</th>
+                                    <th style={{ textAlign: 'center', padding: '10px 12px', color: 'var(--brand-blue)', fontSize: '0.8rem' }}>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -298,17 +296,17 @@ export default function AdminBloqueos() {
                                 ) : (
                                     filteredBloqueos.map(b => (
                                         <tr key={b.id} className="hover-scale" style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }}>
-                                            <td style={{ padding: '15px', fontWeight: '700' }}>{b.canchas?.nombre || `Cancha ${b.id_cancha}`}</td>
-                                            <td style={{ padding: '15px' }}>
+                                            <td style={{ padding: '10px 12px', fontWeight: '700', fontSize: '0.9rem' }}>{b.canchas?.nombre || `Cancha ${b.id_cancha}`}</td>
+                                            <td style={{ padding: '10px 12px'}}>
                                                 {formatDateToDDMMYYYY(b.fecha)}
                                             </td>
-                                            <td style={{ padding: '15px' }}>
+                                            <td style={{ padding: '10px 12px'}}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Clock size={14} style={{ opacity: 0.6 }} />
                                                     {b.hora_inicio.substring(0, 5)} - {b.hora_fin.substring(0, 5)}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '15px' }}>
+                                            <td style={{ padding: '10px 12px'}}>
                                                 <span className="badge" style={{
                                                     background: b.tipo === 'torneo' ? '#D4EFDF' : b.tipo === 'mantenimiento' ? '#FADBD8' : 'var(--bg-main)',
                                                     color: b.tipo === 'torneo' ? '#1E8449' : b.tipo === 'mantenimiento' ? '#A93226' : 'var(--text-muted)',
@@ -319,7 +317,7 @@ export default function AdminBloqueos() {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '15px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{b.descripcion || '-'}</td>
-                                            <td style={{ padding: '15px' }}>
+                                            <td style={{ padding: '10px 12px'}}>
                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                     <button
                                                         onClick={() => handleDuplicate(b)}

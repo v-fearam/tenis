@@ -4,9 +4,9 @@ import { AbonosController } from './abonos.controller';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    providers: [AbonosService],
-    controllers: [AbonosController],
-    exports: [AbonosService]
+  imports: [SupabaseModule],
+  providers: [AbonosService],
+  controllers: [AbonosController],
+  exports: [AbonosService],
 })
-export class AbonosModule { }
+export class AbonosModule {}

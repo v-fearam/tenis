@@ -7,25 +7,29 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('config')
 export class ConfigController {
-    constructor(private readonly configService: ConfigService) { }
+  constructor(private readonly configService: ConfigService) {}
 
-    @Get()
-    findAll() {
-        return this.configService.findAll();
-    }
+  @Get()
+  findAll() {
+    return this.configService.findAll();
+  }
 
-    @Get(':clave')
-    findByKey(@Param('clave') clave: string) {
-        return this.configService.findByKey(clave);
-    }
+  @Get(':clave')
+  findByKey(@Param('clave') clave: string) {
+    return this.configService.findByKey(clave);
+  }
 
-    @Patch(':clave')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles('admin')
-    update(
-        @Param('clave') clave: string,
-        @Body() updateConfigDto: UpdateConfigDto,
-    ) {
-        return this.configService.update(clave, updateConfigDto.valor, updateConfigDto.descripcion);
-    }
+  @Patch(':clave')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  update(
+    @Param('clave') clave: string,
+    @Body() updateConfigDto: UpdateConfigDto,
+  ) {
+    return this.configService.update(
+      clave,
+      updateConfigDto.valor,
+      updateConfigDto.descripcion,
+    );
+  }
 }

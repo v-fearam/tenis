@@ -1,10 +1,17 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(private readonly supabaseService: SupabaseService) {}
 
   async login(loginDto: LoginDto) {
     const client = this.supabaseService.getClient();
@@ -19,9 +26,11 @@ export class AuthService {
     }
 
     // Use the session token to create an authenticated client so RLS works
-    const authClient = this.supabaseService.getAuthenticatedClient(data.session.access_token);
+    const authClient = this.supabaseService.getAuthenticatedClient(
+      data.session.access_token,
+    );
 
-    console.log('Login successful for:', data.user.id);
+    this.logger.log(`Login successful for user ${data.user.id}`);
 
     const { data: usuario, error: profileError } = await authClient
       .from('usuarios')
@@ -36,8 +45,6 @@ export class AuthService {
       rol: data.user.user_metadata?.rol || 'socio',
       ...usuario,
     };
-
-    console.log('Final user object being returned:', finalUser);
 
     return {
       access_token: data.session.access_token,
@@ -68,8 +75,14 @@ export class AuthService {
     }
 
     // Update additional fields if provided
-    if (data.user && data.session && (registerDto.dni || registerDto.telefono)) {
-      const authClient = this.supabaseService.getAuthenticatedClient(data.session.access_token);
+    if (
+      data.user &&
+      data.session &&
+      (registerDto.dni || registerDto.telefono)
+    ) {
+      const authClient = this.supabaseService.getAuthenticatedClient(
+        data.session.access_token,
+      );
       await authClient
         .from('usuarios')
         .update({

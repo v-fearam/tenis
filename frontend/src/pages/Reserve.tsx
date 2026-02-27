@@ -29,7 +29,9 @@ interface DashboardData {
         tipo: string;
         creditos_totales: number;
         creditos_disponibles: number;
+        color: string | null;
     } | null;
+    isSocio: boolean;
 }
 
 export default function Reserve() {
@@ -197,32 +199,63 @@ export default function Reserve() {
                 </div>
             </header>
 
-            {/* Compact Dashboard Summary - Single Line (hidden on small mobile) */}
+            {/* Abono / Membership Card */}
             {user && dashboard && (
-                <div className="dashboard-compact">
-                    {/* Next Match */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+                    padding: '10px 14px', marginBottom: '10px',
+                    background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',
+                }}>
+                    {/* Next Match pill */}
                     {dashboard.nextMatch && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
-                            <CalendarIcon size={16} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
-                            <div style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
+                            <CalendarIcon size={15} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
                                 {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
-                            </div>
+                            </span>
                         </div>
                     )}
 
-                    {/* Balance */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(39, 174, 96, 0.1)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
-                        <Wallet size={16} style={{ color: '#27AE60', flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#27AE60' }}>$0</span>
-                    </div>
+                    {/* Separator */}
+                    <div style={{ flex: 1 }} />
 
-                    {/* Abono */}
-                    {dashboard.abono && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
-                            <CreditCard size={16} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
-                                {dashboard.abono.tipo === 'libre' ? 'Libre' : `${dashboard.abono.creditos_disponibles}/${dashboard.abono.creditos_totales}`}
-                            </span>
+                    {/* Abono info */}
+                    {dashboard.abono ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                                background: (dashboard.abono.color || 'var(--brand-blue)') + '18',
+                                border: `1px solid ${dashboard.abono.color || 'var(--brand-blue)'}33`,
+                            }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: dashboard.abono.color || 'var(--brand-blue)' }}>
+                                    {dashboard.abono.tipo}
+                                </span>
+                            </div>
+                            {dashboard.abono.tipo.toLowerCase() === 'libre' ? (
+                                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#27AE60' }}>Ilimitado</span>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CreditCard size={15} style={{ color: dashboard.abono.creditos_disponibles > 0 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
+                                    <span style={{
+                                        fontSize: '0.85rem', fontWeight: '700',
+                                        color: dashboard.abono.creditos_disponibles > 0 ? 'var(--text-main)' : '#E74C3C',
+                                    }}>
+                                        {dashboard.abono.creditos_disponibles}/{dashboard.abono.creditos_totales}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>créditos</span>
+                                </div>
+                            )}
+                        </div>
+                    ) : dashboard.isSocio ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CreditCard size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin abono asignado</span>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Wallet size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No socio — Tarifa general</span>
                         </div>
                     )}
                 </div>

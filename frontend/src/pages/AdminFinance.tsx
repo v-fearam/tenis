@@ -51,24 +51,23 @@ export default function AdminFinance() {
         return matchesSearch && matchesStatus;
     });
 
+    // Update pagination meta when filtered data changes (must be in useEffect, not useMemo)
+    useEffect(() => {
+        const totalPages = Math.ceil(filteredBookings.length / pagination.pageSize) || 1;
+        pagination.setMeta({
+            currentPage: pagination.page,
+            pageSize: pagination.pageSize,
+            totalItems: filteredBookings.length,
+            totalPages,
+            hasNextPage: pagination.page < totalPages,
+            hasPreviousPage: pagination.page > 1,
+        });
+    }, [filteredBookings.length, pagination.page, pagination.pageSize]);
+
     // Client-side pagination
     const paginatedBookings = useMemo(() => {
         const startIndex = (pagination.page - 1) * pagination.pageSize;
         const endIndex = startIndex + pagination.pageSize;
-
-        // Update meta with client-side data
-        if (filteredBookings.length > 0) {
-            const totalPages = Math.ceil(filteredBookings.length / pagination.pageSize);
-            pagination.setMeta({
-                currentPage: pagination.page,
-                pageSize: pagination.pageSize,
-                totalItems: filteredBookings.length,
-                totalPages,
-                hasNextPage: pagination.page < totalPages,
-                hasPreviousPage: pagination.page > 1,
-            });
-        }
-
         return filteredBookings.slice(startIndex, endIndex);
     }, [filteredBookings, pagination.page, pagination.pageSize]);
 

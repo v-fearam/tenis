@@ -4,9 +4,9 @@ import { CanchasService } from './canchas.service';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    controllers: [CanchasController],
-    providers: [CanchasService],
-    exports: [CanchasService],
+  imports: [SupabaseModule],
+  controllers: [CanchasController],
+  providers: [CanchasService],
+  exports: [CanchasService],
 })
-export class CanchasModule { }
+export class CanchasModule {}

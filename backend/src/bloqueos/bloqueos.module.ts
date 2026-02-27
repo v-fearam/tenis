@@ -4,9 +4,9 @@ import { BloqueosService } from './bloqueos.service';
 import { SupabaseModule } from '../supabase/supabase.module';
 
 @Module({
-    imports: [SupabaseModule],
-    controllers: [BloqueosController],
-    providers: [BloqueosService],
-    exports: [BloqueosService],
+  imports: [SupabaseModule],
+  controllers: [BloqueosController],
+  providers: [BloqueosService],
+  exports: [BloqueosService],
 })
-export class BloqueosModule { }
+export class BloqueosModule {}

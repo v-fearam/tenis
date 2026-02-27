@@ -6,9 +6,9 @@ import { AbonosModule } from '../abonos/abonos.module';
 import { RecaptchaService } from '../common/recaptcha.service';
 
 @Module({
-    imports: [SupabaseModule, AbonosModule],
-    controllers: [BookingsController],
-    providers: [BookingsService, RecaptchaService],
-    exports: [BookingsService],
+  imports: [SupabaseModule, AbonosModule],
+  controllers: [BookingsController],
+  providers: [BookingsService, RecaptchaService],
+  exports: [BookingsService],
 })
-export class BookingsModule { }
+export class BookingsModule {}

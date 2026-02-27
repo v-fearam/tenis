@@ -131,19 +131,19 @@ export default function AdminDashboard() {
             )}
 
             {/* MAIN CONTENT AREA */}
-            <main style={{ padding: '40px' }}>
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
+            <main style={{ padding: '20px' }}>
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <div>
-                        <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-1px', marginBottom: '4px' }}>Gestión de Turnos</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Estado de reservas y aprobaciones del Club</p>
+                        <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '2px' }}>Gestión de Turnos</h1>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Reservas y aprobaciones</p>
                     </div>
-                    <button onClick={() => window.location.href = '/'} className="btn-primary" style={{ padding: '12px 24px', borderRadius: '14px', background: 'var(--text-main)', color: 'white' }}>
-                        Ir a Vista Socios
+                    <button onClick={() => window.location.href = '/'} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem' }}>
+                        Vista Socios
                     </button>
                 </header>
 
                 {/* Grid of Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '14px' }}>
                     <StatCard
                         title="Reservas Activas"
                         value={paginationActive.meta?.totalItems || 0}
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
                     />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button
                             onClick={() => setActiveView('pending')}
@@ -388,24 +388,26 @@ function StatCard({ title, value, icon, color, trend, pulse }: any) {
     const accent = accents[color] || accents.blue;
 
     return (
-        <div className="card glass hover-scale" style={{ padding: '24px', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
+        <div className="card glass hover-scale" style={{ padding: '14px 16px', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
             {pulse && (
                 <div style={{
-                    position: 'absolute', top: '15px', right: '15px',
-                    width: '8px', height: '8px', borderRadius: '50%', background: accent.main,
-                    boxShadow: `0 0 0 4px ${accent.pastel}`,
+                    position: 'absolute', top: '10px', right: '10px',
+                    width: '7px', height: '7px', borderRadius: '50%', background: accent.main,
+                    boxShadow: `0 0 0 3px ${accent.pastel}`,
                     animation: 'pulse 2s infinite'
                 }} />
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{ color: accent.main, background: accent.pastel, padding: '10px', borderRadius: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ color: accent.main, background: accent.pastel, padding: '8px', borderRadius: '10px' }}>
                     {icon}
                 </div>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '700' }}>{title}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                <div style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-1px' }}>{value}</div>
-                {trend && <div style={{ fontSize: '0.8rem', fontWeight: '700', color: accent.main }}>{trend}</div>}
+                <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: '600' }}>{title}</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{value}</div>
+                        {trend && <div style={{ fontSize: '0.75rem', fontWeight: '700', color: accent.main }}>{trend}</div>}
+                    </div>
+                </div>
             </div>
         </div>
     );

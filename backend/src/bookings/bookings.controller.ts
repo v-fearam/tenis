@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto, BookingQueryDto } from './dto/booking.dto';
@@ -24,19 +25,16 @@ export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,
     private readonly recaptchaService: RecaptchaService,
-  ) { }
+  ) {}
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
-  async create(
-    @Body() createBookingDto: CreateBookingDto,
-    @Req() req: any,
-  ) {
+  async create(@Body() createBookingDto: CreateBookingDto, @Req() req: any) {
     // Verify reCAPTCHA token
     if (createBookingDto.recaptcha_token) {
       await this.recaptchaService.verifyToken(
         createBookingDto.recaptcha_token,
-        'booking_submit'
+        'booking_submit',
       );
     }
 
@@ -46,11 +44,14 @@ export class BookingsController {
   }
 
   @Get()
-  findAll(
-    @Query() query: BookingQueryDto,
-    @Req() req: any,
-  ) {
-    return this.bookingsService.findAll(query, req?.accessToken, query.status, query.fecha_desde, query.fecha_hasta);
+  findAll(@Query() query: BookingQueryDto, @Req() req: any) {
+    return this.bookingsService.findAll(
+      query,
+      req?.accessToken,
+      query.status,
+      query.fecha_desde,
+      query.fecha_hasta,
+    );
   }
 
   @Get('courts')
@@ -68,14 +69,14 @@ export class BookingsController {
   @Patch(':id/confirm')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  confirm(@Param('id') id: string, @Req() req: any) {
+  confirm(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.bookingsService.confirm(id, req.accessToken);
   }
 
   @Patch(':id/cancel')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  cancel(@Param('id') id: string, @Req() req: any) {
+  cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.bookingsService.cancel(id, req.accessToken);
   }
 }

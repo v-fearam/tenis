@@ -4,6 +4,8 @@ import {
   IsIn,
   IsBoolean,
   IsInt,
+  IsEmail,
+  MinLength,
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -42,10 +44,11 @@ export class CreateUserDto {
   @IsString()
   nombre: string;
 
-  @IsString()
+  @IsEmail()
   email: string;
 
   @IsString()
+  @MinLength(6)
   password: string;
 
   @IsOptional()

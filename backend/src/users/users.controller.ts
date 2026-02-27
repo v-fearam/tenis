@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
@@ -20,7 +21,7 @@ import { PaginationDto } from '../common/dto';
 
 @Controller('users')
 export class UsersPublicController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('search-socios')
   searchSocios(@Query('q') query: string) {
@@ -31,7 +32,7 @@ export class UsersPublicController {
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
   getMe(@CurrentUser('id') userId: string, @Req() req: any) {
@@ -58,7 +59,11 @@ export class UsersController {
     @Query() paginationDto: PaginationDto,
     @Req() req: any,
   ) {
-    return this.usersService.search(query || '', paginationDto, req.accessToken);
+    return this.usersService.search(
+      query || '',
+      paginationDto,
+      req.accessToken,
+    );
   }
 
   @Get()
@@ -71,7 +76,7 @@ export class UsersController {
   @Get(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  findOne(@Param('id') id: string, @Req() req: any) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.usersService.findOne(id, req.accessToken);
   }
 
@@ -85,7 +90,11 @@ export class UsersController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @Req() req: any) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @Req() req: any,
+  ) {
     return this.usersService.update(id, updateUserDto, req.accessToken);
   }
 
@@ -93,17 +102,21 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles('admin')
   updateSocio(
-    @Param('id') userId: string,
+    @Param('id', ParseUUIDPipe) userId: string,
     @Body() updateSocioDto: UpdateSocioDto,
     @Req() req: any,
   ) {
-    return this.usersService.updateSocio(userId, updateSocioDto, req.accessToken);
+    return this.usersService.updateSocio(
+      userId,
+      updateSocioDto,
+      req.accessToken,
+    );
   }
 
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  remove(@Param('id') id: string, @Req() req: any) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.usersService.remove(id, req.accessToken);
   }
 }
