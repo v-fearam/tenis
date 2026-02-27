@@ -113,7 +113,7 @@ tenis/
 │   │       └── cancha.ts      # Court type definitions
 │   ├── vercel.json            # SPA rewrite config
 │   └── .env                   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_API_URL
-├── docs/requirements/         # Requirements analysis
+├── docs/                      # Setup guides (recaptcha-setup.md)
 ├── .agents/skills/            # AI agent skills (see Skills section)
 └── package.json               # NPM workspaces root
 ```
@@ -276,7 +276,3 @@ This project includes agent skills that should be invoked via `/skill-name` depe
 | `architecture-patterns` | Planning major refactors or new subsystems — Clean Architecture, Hexagonal Architecture, DDD. Use when restructuring the backend or decomposing features. |
 | `requirements-analysis` | Clarifying vague feature requests before implementation. Helps distinguish stated wants from underlying problems and discover real constraints. |
 | `find-skills` | Searching for and installing new agent skills when the existing ones don't cover a needed capability. Uses `npx skills find [query]`. |
-
-## Implementation Plan
-
-See `docs/implementation-plan.md` for the 12-phase roadmap (Phase 0–12) covering database schema, auth, CRUD modules, booking rewrite, bloqueos, abonos, payments, notifications, reports, audit, and polish.

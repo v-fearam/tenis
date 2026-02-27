@@ -14,7 +14,9 @@
       "Bash(python3:*)",
       "Bash(npx tsc:*)",
       "Bash(npm install:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(curl:*)",
+      "Bash(source:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

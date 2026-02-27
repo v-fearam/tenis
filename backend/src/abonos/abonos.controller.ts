@@ -52,6 +52,23 @@ export class AbonosController {
     return this.abonosService.deleteType(id, req.accessToken);
   }
 
+  // --- STATS ---
+
+  @Get('stats')
+  getStats(@Req() req: any) {
+    return this.abonosService.getAbonoStats(req.accessToken);
+  }
+
+  // --- CIERRE MENSUAL ---
+
+  @Post('cierre-mensual')
+  ejecutarCierre(@Req() req: any) {
+    return this.abonosService.ejecutarCierreMensual(
+      req.accessToken,
+      req.user.id,
+    );
+  }
+
   // --- ASSIGNMENT ---
 
   @Post('assign')

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   CreditCard, Plus, Search, Edit2, Trash2, X, UserMinus,
-  TrendingUp, CheckCircle2,
+  TrendingUp, CheckCircle2, RefreshCw, AlertTriangle, BarChart3,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
@@ -49,8 +49,32 @@ export default function AdminAbonos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [assigningTo, setAssigningTo] = useState<string | null>(null); // socio id
 
+  // --- Stats state ---
+  const [abonoStats, setAbonoStats] = useState<{
+    por_tipo: Array<{ tipo_abono_id: string; nombre: string; color: string; count: number }>;
+    sin_abono: number;
+  } | null>(null);
+
+  // --- Cierre mensual state ---
+  const [showCierreModal, setShowCierreModal] = useState(false);
+  const [ejecutandoCierre, setEjecutandoCierre] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const pagination = usePagination();
+
+  // --- Fetch Stats ---
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await api.get<{
+        por_tipo: Array<{ tipo_abono_id: string; nombre: string; color: string; count: number }>;
+        sin_abono: number;
+      }>('/abonos/stats');
+      setAbonoStats(data);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  }, []);
 
   // --- Fetch Types ---
   const fetchTipos = useCallback(async () => {
@@ -91,7 +115,7 @@ export default function AdminAbonos() {
     }
   }, [pagination.page, pagination.pageSize]);
 
-  useEffect(() => { fetchTipos(); }, [fetchTipos]);
+  useEffect(() => { fetchTipos(); fetchStats(); }, [fetchTipos, fetchStats]);
   useEffect(() => { fetchSocios(); }, [fetchSocios]);
 
   // --- Type CRUD Handlers ---
@@ -167,6 +191,7 @@ export default function AdminAbonos() {
       setToast({ message: 'Abono asignado correctamente', type: 'success' });
       setAssigningTo(null);
       await fetchSocios();
+      await fetchStats();
     } catch (err: any) {
       setToast({ message: err.message || 'Error al asignar abono', type: 'error' });
     }
@@ -178,8 +203,26 @@ export default function AdminAbonos() {
       await api.delete(`/abonos/assign/${socioId}`);
       setToast({ message: 'Abono removido', type: 'success' });
       await fetchSocios();
+      await fetchStats();
     } catch (err: any) {
       setToast({ message: err.message || 'Error al quitar abono', type: 'error' });
+    }
+  };
+
+  // --- Cierre Mensual Handler ---
+  const handleCierreMensual = async () => {
+    setEjecutandoCierre(true);
+    try {
+      await api.post('/abonos/cierre-mensual', {});
+      setToast({ message: 'Cambio de mes ejecutado correctamente. Todos los abonos fueron limpiados.', type: 'success' });
+      setShowCierreModal(false);
+      setConfirmText('');
+      await fetchSocios();
+      await fetchStats();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error al ejecutar el cambio de mes', type: 'error' });
+    } finally {
+      setEjecutandoCierre(false);
     }
   };
 
@@ -217,9 +260,18 @@ export default function AdminAbonos() {
               Tipos de abono y asignación a socios
             </p>
           </div>
-          <button className="btn-primary" onClick={openCreateType} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.85rem', minHeight: 'auto' }}>
-            <Plus size={16} /> Nuevo Tipo
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setShowCierreModal(true)}
+              className="btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.85rem', minHeight: 'auto', background: 'var(--clay-orange, #E67E22)' }}
+            >
+              <RefreshCw size={16} /> Cambio de Mes
+            </button>
+            <button className="btn-primary" onClick={openCreateType} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', fontSize: '0.85rem', minHeight: 'auto' }}>
+              <Plus size={16} /> Nuevo Tipo
+            </button>
+          </div>
         </div>
 
         {tipos.length === 0 ? (
@@ -261,6 +313,48 @@ export default function AdminAbonos() {
           </div>
         )}
       </div>
+
+      {/* === Bar Chart: Abonos por Tipo === */}
+      {abonoStats && (abonoStats.por_tipo.length > 0 || abonoStats.sin_abono > 0) && (() => {
+        const allBars = [
+          ...abonoStats.por_tipo.map(t => ({ label: t.nombre, count: t.count, color: t.color })),
+          ...(abonoStats.sin_abono > 0 ? [{ label: 'Sin abono', count: abonoStats.sin_abono, color: '#BDC3C7' }] : []),
+        ];
+        const maxCount = Math.max(...allBars.map(b => b.count), 1);
+        return (
+          <div className="card" style={{ padding: '16px 20px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+              <BarChart3 size={16} style={{ color: 'var(--brand-blue)' }} />
+              <h2 style={{ fontSize: '0.9rem', fontWeight: '700', margin: 0 }}>Abonos Asignados por Tipo</h2>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {allBars.map((bar) => (
+                <div key={bar.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '100px', fontSize: '0.8rem', fontWeight: '600', textAlign: 'right', flexShrink: 0, color: 'var(--text-main)' }}>
+                    {bar.label}
+                  </div>
+                  <div style={{ flex: 1, height: '28px', background: 'var(--bg-main, #F8F9FA)', borderRadius: '6px', overflow: 'hidden', position: 'relative' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${(bar.count / maxCount) * 100}%`,
+                      background: bar.color,
+                      borderRadius: '6px',
+                      transition: 'width 0.6s ease',
+                      minWidth: bar.count > 0 ? '24px' : '0',
+                    }} />
+                    <span style={{
+                      position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                      fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-main)',
+                    }}>
+                      {bar.count}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* === SECTION 2: Socios y Asignación === */}
       <div>
@@ -514,6 +608,92 @@ export default function AdminAbonos() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* === Cierre Mensual Confirmation Modal === */}
+      {showCierreModal && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }} onClick={() => { setShowCierreModal(false); setConfirmText(''); }}>
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: '500px', padding: '32px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{
+                padding: '10px', borderRadius: '12px',
+                background: '#FDEDEC', color: '#E74C3C', display: 'flex',
+              }}>
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#E74C3C', margin: 0 }}>
+                  Cambio de Mes
+                </h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Cierre mensual de abonos
+                </p>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#FFF8E1', border: '1px solid #FFE082', borderRadius: 'var(--radius-sm)',
+              padding: '16px', marginBottom: '20px', fontSize: '0.88rem', lineHeight: 1.7,
+            }}>
+              <p style={{ fontWeight: '700', marginBottom: '8px', color: '#E65100' }}>
+                Esta accion es irreversible. Se realizaran los siguientes cambios:
+              </p>
+              <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                <li>Se guardara un resumen financiero del mes actual (abonos y turnos) para reportes</li>
+                <li>Se eliminaran <strong>TODOS</strong> los abonos asignados a socios</li>
+                <li>Los creditos disponibles de todos los socios se pondran en <strong>0</strong></li>
+                <li>Los tipos de abono <strong>NO</strong> se eliminan (solo las asignaciones)</li>
+              </ul>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Socios con abono actualmente: <strong style={{ color: 'var(--text-main)' }}>
+                {sociosList.filter(s => s.socio.id_tipo_abono).length}
+              </strong> (en esta pagina)
+            </p>
+
+            <FormField label='Escribi "CONFIRMAR" para continuar' required>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                style={inputStyle}
+                placeholder="CONFIRMAR"
+                autoComplete="off"
+              />
+            </FormField>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+              <button
+                className="btn-secondary"
+                onClick={() => { setShowCierreModal(false); setConfirmText(''); }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-primary"
+                disabled={confirmText !== 'CONFIRMAR' || ejecutandoCierre}
+                onClick={handleCierreMensual}
+                style={{
+                  background: '#E74C3C',
+                  opacity: confirmText !== 'CONFIRMAR' || ejecutandoCierre ? 0.5 : 1,
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                {ejecutandoCierre ? 'Ejecutando...' : 'Ejecutar Cambio de Mes'}
+              </button>
+            </div>
           </div>
         </div>
       )}
