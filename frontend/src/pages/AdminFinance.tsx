@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     CreditCard, Calendar, User,
     CheckCircle2, Clock, XCircle, Search, Filter
@@ -6,6 +6,8 @@ import {
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
 import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import { usePagination } from '../hooks/usePagination';
+import PaginationControls from '../components/PaginationControls';
 
 interface Booking {
     id: string;
@@ -24,10 +26,15 @@ export default function AdminFinance() {
     const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
+    const pagination = usePagination();
+
     useEffect(() => {
         const fetchBookings = async () => {
             try {
-                const data = await api.get<Booking[]>('/bookings');
+                // Endpoint now returns paginated response: { data: [], meta: {} }
+                // Use large pageSize to get all results for filtering
+                const response = await api.get<{ data: Booking[] }>('/bookings?pageSize=1000');
+                const data = response.data || [];
                 setBookings(data);
                 setLoading(false);
             } catch (err) {
@@ -43,6 +50,27 @@ export default function AdminFinance() {
         const matchesStatus = filterStatus === 'all' || b.status === filterStatus;
         return matchesSearch && matchesStatus;
     });
+
+    // Client-side pagination
+    const paginatedBookings = useMemo(() => {
+        const startIndex = (pagination.page - 1) * pagination.pageSize;
+        const endIndex = startIndex + pagination.pageSize;
+
+        // Update meta with client-side data
+        if (filteredBookings.length > 0) {
+            const totalPages = Math.ceil(filteredBookings.length / pagination.pageSize);
+            pagination.setMeta({
+                currentPage: pagination.page,
+                pageSize: pagination.pageSize,
+                totalItems: filteredBookings.length,
+                totalPages,
+                hasNextPage: pagination.page < totalPages,
+                hasPreviousPage: pagination.page > 1,
+            });
+        }
+
+        return filteredBookings.slice(startIndex, endIndex);
+    }, [filteredBookings, pagination.page, pagination.pageSize]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -135,7 +163,7 @@ export default function AdminFinance() {
                                     <td colSpan={4} style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>No se encontraron registros.</td>
                                 </tr>
                             ) : (
-                                filteredBookings.map((booking) => (
+                                paginatedBookings.map((booking) => (
                                     <tr key={booking.id} style={{ borderBottom: '1px solid var(--border)' }} className="hover-highlight">
                                         <td style={{ padding: '16px 24px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -173,6 +201,18 @@ export default function AdminFinance() {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {filteredBookings.length > 0 && (
+                    <PaginationControls
+                        meta={pagination.meta}
+                        onPageChange={pagination.goToPage}
+                        onNext={pagination.nextPage}
+                        onPrevious={pagination.previousPage}
+                        onFirst={pagination.firstPage}
+                        onLast={pagination.lastPage}
+                    />
+                )}
             </main>
         </div>
     );

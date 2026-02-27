@@ -3,26 +3,55 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
+import { PaginationDto, PaginatedResponseDto } from '../common/dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly supabaseService: SupabaseService) { }
+  private readonly defaultPageSize: number;
+
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly configService: ConfigService,
+  ) {
+    this.defaultPageSize = this.configService.get<number>(
+      'PAGINATION_PAGE_SIZE',
+      20,
+    );
+  }
 
   private sanitizeFilter(input: string): string {
     return input.replace(/[%_\\(),.\"']/g, '');
   }
 
-  async findAll(accessToken: string) {
+  async findAll(
+    paginationDto: PaginationDto,
+    accessToken: string,
+  ): Promise<PaginatedResponseDto<any>> {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || this.defaultPageSize;
+    const offset = (page - 1) * pageSize;
+
+    // Get total count
+    const { count, error: countError } = await client
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true });
+
+    if (countError) throw countError;
+
+    // Get paginated data
     const { data, error } = await client
       .from('usuarios')
-      .select('*, socios(*)')
-      .order('nombre');
+      .select('*, socios(*, tipo_abono:tipos_abono(*))')
+      .order('nombre')
+      .range(offset, offset + pageSize - 1);
 
     if (error) throw error;
-    return data;
+
+    return PaginatedResponseDto.create(data || [], page, pageSize, count || 0);
   }
 
   async count(accessToken: string) {
@@ -39,7 +68,7 @@ export class UsersService {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
     const { data, error } = await client
       .from('usuarios')
-      .select('*, socios(*)')
+      .select('*, socios(*, tipo_abono:tipos_abono(*))')
       .eq('id', id)
       .single();
 
@@ -64,17 +93,37 @@ export class UsersService {
     return data;
   }
 
-  async search(query: string, accessToken: string) {
+  async search(
+    query: string,
+    paginationDto: PaginationDto,
+    accessToken: string,
+  ): Promise<PaginatedResponseDto<any>> {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || this.defaultPageSize;
+    const offset = (page - 1) * pageSize;
+    const sanitized = this.sanitizeFilter(query);
+    const searchFilter = `nombre.ilike.%${sanitized}%,dni.ilike.%${sanitized}%,telefono.ilike.%${sanitized}%,email.ilike.%${sanitized}%`;
+
+    // Get total count for search
+    const { count, error: countError } = await client
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true })
+      .or(searchFilter);
+
+    if (countError) throw countError;
+
+    // Get paginated search results
     const { data, error } = await client
       .from('usuarios')
-      .select('*, socios(*)')
-      .or(`nombre.ilike.%${this.sanitizeFilter(query)}%,dni.ilike.%${this.sanitizeFilter(query)}%,telefono.ilike.%${this.sanitizeFilter(query)}%,email.ilike.%${this.sanitizeFilter(query)}%`)
+      .select('*, socios(*, tipo_abono:tipos_abono(*))')
+      .or(searchFilter)
       .order('nombre')
-      .limit(20);
+      .range(offset, offset + pageSize - 1);
 
     if (error) throw error;
-    return data;
+
+    return PaginatedResponseDto.create(data || [], page, pageSize, count || 0);
   }
 
   async create(createUserDto: CreateUserDto) {
@@ -124,7 +173,7 @@ export class UsersService {
     // Return the created user (use admin client for the read)
     const { data: newUser } = await client
       .from('usuarios')
-      .select('*, socios(*)')
+      .select('*, socios(*, tipo_abono:tipos_abono(*))')
       .eq('id', authData.user.id)
       .single();
 
@@ -141,7 +190,7 @@ export class UsersService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('*, socios(*)')
+      .select('*, socios(*, tipo_abono:tipos_abono(*))')
       .single();
 
     if (error) throw error;

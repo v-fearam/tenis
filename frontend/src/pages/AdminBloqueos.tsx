@@ -8,6 +8,9 @@ import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
 import { formatDateToDDMMYYYY } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
+import { usePagination } from '../hooks/usePagination';
+import type { PaginatedResponse } from '../types/pagination';
+import PaginationControls from '../components/PaginationControls';
 
 interface Bloqueo {
     id: string;
@@ -25,6 +28,8 @@ export default function AdminBloqueos() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const [isExplaining, setIsExplaining] = useState(false);
+
+    const pagination = usePagination();
 
     const [dateFrom, setDateFrom] = useState(() => {
         const today = new Date();
@@ -62,8 +67,12 @@ export default function AdminBloqueos() {
 
     const fetchBloqueos = async () => {
         try {
-            const data = await api.get<Bloqueo[]>('/bloqueos');
-            setBloqueos(data);
+            const params = pagination.getQueryParams();
+            const response = await api.get<PaginatedResponse<Bloqueo>>(
+                `/bloqueos?page=${params.page}&pageSize=${params.pageSize}`
+            );
+            setBloqueos(response.data);
+            pagination.setMeta(response.meta);
             setLoading(false);
         } catch (err) {
             console.error('Error fetching bloqueos:', err);
@@ -74,7 +83,7 @@ export default function AdminBloqueos() {
 
     useEffect(() => {
         fetchBloqueos();
-    }, []);
+    }, [pagination.page]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('¿Estás seguro de eliminar este bloqueo?')) return;
@@ -346,6 +355,16 @@ export default function AdminBloqueos() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination Controls */}
+                    <PaginationControls
+                        meta={pagination.meta}
+                        onPageChange={pagination.goToPage}
+                        onNext={pagination.nextPage}
+                        onPrevious={pagination.previousPage}
+                        onFirst={pagination.firstPage}
+                        onLast={pagination.lastPage}
+                    />
                 </div>
             </main>
         </div>

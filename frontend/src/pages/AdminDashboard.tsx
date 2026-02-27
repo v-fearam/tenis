@@ -7,6 +7,9 @@ import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
 import { formatDateToDDMMYYYY } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
+import { usePagination } from '../hooks/usePagination';
+import type { PaginatedResponse } from '../types/pagination';
+import PaginationControls from '../components/PaginationControls';
 
 interface Booking {
     id: string;
@@ -25,6 +28,9 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const [activeView, setActiveView] = useState<'pending' | 'active'>('pending');
+
+    const paginationPending = usePagination();
+    const paginationActive = usePagination();
 
     const [dateFrom, setDateFrom] = useState(() => {
         const today = new Date();
@@ -60,14 +66,25 @@ export default function AdminDashboard() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [bookingsData, activeData, usersCount] = await Promise.all([
-                    api.get<Booking[]>('/bookings'),
-                    api.get<Booking[]>('/bookings/active'),
+                const pendingParams = paginationPending.getQueryParams();
+                const activeParams = paginationActive.getQueryParams();
+
+                const [bookingsResponse, activeResponse, usersCount] = await Promise.all([
+                    api.get<PaginatedResponse<Booking>>(
+                        `/bookings?page=${pendingParams.page}&pageSize=${pendingParams.pageSize}`
+                    ),
+                    api.get<PaginatedResponse<Booking>>(
+                        `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}`
+                    ),
                     api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 }))
                 ]);
 
-                setBookings(bookingsData);
-                setActiveBookings(activeData);
+                setBookings(bookingsResponse.data);
+                paginationPending.setMeta(bookingsResponse.meta);
+
+                setActiveBookings(activeResponse.data);
+                paginationActive.setMeta(activeResponse.meta);
+
                 setTotalUsers(usersCount.count);
                 setLoading(false);
             } catch (err) {
@@ -77,7 +94,7 @@ export default function AdminDashboard() {
         };
 
         fetchDashboardData();
-    }, []);
+    }, [paginationPending.page, paginationActive.page]);
 
     const handleConfirm = async (id: string) => {
         try {
@@ -141,13 +158,13 @@ export default function AdminDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <StatCard
                         title="Reservas Activas"
-                        value={activeBookings.length}
+                        value={paginationActive.meta?.totalItems || 0}
                         icon={<Calendar size={22} />}
                         color="blue"
                     />
                     <StatCard
                         title="Por Aprobar"
-                        value={pendingBookings.length}
+                        value={paginationPending.meta?.totalItems || 0}
                         icon={<Clock size={22} />}
                         color="orange"
                         pulse
@@ -223,7 +240,10 @@ export default function AdminDashboard() {
                                     fontWeight: '800'
                                 }}
                             >
-                                {activeView === 'pending' ? `${filteredPending.length} PENDIENTES` : `${filteredActive.length} ACTIVOS`}
+                                {activeView === 'pending'
+                                    ? `${paginationPending.meta?.totalItems || 0} PENDIENTES`
+                                    : `${paginationActive.meta?.totalItems || 0} ACTIVOS`
+                                }
                             </span>
                         </div>
 
@@ -340,6 +360,29 @@ export default function AdminDashboard() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Pagination Controls */}
+                        {activeView === 'pending' && filteredPending.length > 0 && (
+                            <PaginationControls
+                                meta={paginationPending.meta}
+                                onPageChange={paginationPending.goToPage}
+                                onNext={paginationPending.nextPage}
+                                onPrevious={paginationPending.previousPage}
+                                onFirst={paginationPending.firstPage}
+                                onLast={paginationPending.lastPage}
+                            />
+                        )}
+
+                        {activeView === 'active' && filteredActive.length > 0 && (
+                            <PaginationControls
+                                meta={paginationActive.meta}
+                                onPageChange={paginationActive.goToPage}
+                                onNext={paginationActive.nextPage}
+                                onPrevious={paginationActive.previousPage}
+                                onFirst={paginationActive.firstPage}
+                                onLast={paginationActive.lastPage}
+                            />
+                        )}
                     </div>
                 </section>
             </main>

@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Patch,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RecaptchaService } from '../common/recaptcha.service';
+import { PaginationDto } from '../common/dto';
 
 @Controller('bookings')
 export class BookingsController {
@@ -44,8 +46,8 @@ export class BookingsController {
   }
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.bookingsService.findAll(req?.accessToken);
+  findAll(@Query() paginationDto: PaginationDto, @Req() req: any) {
+    return this.bookingsService.findAll(paginationDto, req?.accessToken);
   }
 
   @Get('courts')
@@ -56,8 +58,8 @@ export class BookingsController {
   @Get('active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  findActive(@Req() req: any) {
-    return this.bookingsService.findActive(req.accessToken);
+  findActive(@Query() paginationDto: PaginationDto, @Req() req: any) {
+    return this.bookingsService.findActive(paginationDto, req.accessToken);
   }
 
   @Patch(':id/confirm')

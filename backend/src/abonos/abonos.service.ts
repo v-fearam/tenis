@@ -1,10 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AssignAbonoDto, CreateAbonoTypeDto, UpdateAbonoTypeDto } from './dto/abono.dto';
 
 @Injectable()
 export class AbonosService {
-    constructor(private readonly supabaseService: SupabaseService) { }
+    constructor(
+        private readonly supabaseService: SupabaseService,
+        private readonly configService: ConfigService,
+    ) {}
 
     // --- TYPES CRUD ---
 
@@ -25,7 +29,7 @@ export class AbonosService {
             .from('tipos_abono')
             .insert({
                 ...dto,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
             })
             .select()
             .single();
@@ -40,7 +44,7 @@ export class AbonosService {
             .from('tipos_abono')
             .update({
                 ...dto,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
             })
             .eq('id', id)
             .select()
@@ -52,6 +56,19 @@ export class AbonosService {
 
     async deleteType(id: string, accessToken: string) {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+        // Check if any socio has this type assigned
+        const { count } = await client
+            .from('socios')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_tipo_abono', id);
+
+        if (count && count > 0) {
+            throw new BadRequestException(
+                `No se puede eliminar: hay ${count} socio(s) con este abono asignado`,
+            );
+        }
+
         const { error } = await client
             .from('tipos_abono')
             .delete()
@@ -63,102 +80,76 @@ export class AbonosService {
 
     // --- ASSIGNMENT ---
 
-    async findAll(accessToken: string) {
-        const client = this.supabaseService.getAuthenticatedClient(accessToken);
-        const { data, error } = await client
-            .from('abonos')
-            .select('*, socio:socios(*, usuario:usuarios(*))')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        return data;
-    }
-
     async assign(dto: AssignAbonoDto, accessToken: string) {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
-        // 1. Fetch tier config from DB
-        const { data: tier, error: tierError } = await client
+        // 1. Fetch tipo_abono to get credits
+        const { data: tipo, error: tipoError } = await client
             .from('tipos_abono')
             .select('*')
-            .eq('nombre', dto.tipo)
-            .maybeSingle();
+            .eq('id', dto.tipo_abono_id)
+            .single();
 
-        if (tierError || !tier) throw new BadRequestException(`Tipo de abono "${dto.tipo}" no encontrado`);
-
-        // 2. Check if socio already has an abono for this month
-        const { data: existing } = await client
-            .from('abonos')
-            .select('*')
-            .eq('id_socio', dto.socio_id)
-            .eq('mes_anio', dto.mes_anio)
-            .eq('activo', true)
-            .maybeSingle();
-
-        if (existing) {
-            // Update existing
-            const { data, error } = await client
-                .from('abonos')
-                .update({
-                    tipo: dto.tipo,
-                    creditos_totales: tier.creditos,
-                    creditos_disponibles: tier.creditos,
-                    precio_lista_mes: tier.precio,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existing.id)
-                .select()
-                .single();
-            if (error) throw error;
-            return data;
+        if (tipoError || !tipo) {
+            throw new BadRequestException('Tipo de abono no encontrado');
         }
 
-        // 3. Create new
+        // 2. Update socio with FK and credits
         const { data, error } = await client
-            .from('abonos')
-            .insert({
-                id_socio: dto.socio_id,
-                mes_anio: dto.mes_anio,
-                tipo: dto.tipo,
-                creditos_totales: tier.creditos,
-                creditos_disponibles: tier.creditos,
-                precio_lista_mes: tier.precio,
-                activo: true,
-                fecha_alta: new Date().toISOString()
+            .from('socios')
+            .update({
+                id_tipo_abono: dto.tipo_abono_id,
+                creditos_disponibles: tipo.creditos,
+                updated_at: new Date().toISOString(),
             })
-            .select()
+            .eq('id', dto.socio_id)
+            .select('*, tipo_abono:tipos_abono(*)')
             .single();
 
         if (error) throw error;
         return data;
     }
 
-    async consumeCredit(socioId: string, accessToken: string) {
+    async consumeCredit(socioId: string, accessToken: string): Promise<boolean> {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
-        const now = new Date();
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
-        const { data: abono, error } = await client
-            .from('abonos')
-            .select('*')
-            .eq('id_socio', socioId)
-            .eq('mes_anio', monthStart)
-            .eq('activo', true)
-            .maybeSingle();
+        const { data: socio, error } = await client
+            .from('socios')
+            .select('id, id_tipo_abono, creditos_disponibles')
+            .eq('id', socioId)
+            .single();
 
-        if (error || !abono) return false;
-
-        if (abono.creditos_disponibles <= 0) return false;
+        if (error || !socio || !socio.id_tipo_abono || socio.creditos_disponibles <= 0) {
+            return false;
+        }
 
         const { error: updateError } = await client
-            .from('abonos')
+            .from('socios')
             .update({
-                creditos_disponibles: abono.creditos_disponibles - 1,
-                updated_at: new Date().toISOString()
+                creditos_disponibles: socio.creditos_disponibles - 1,
+                updated_at: new Date().toISOString(),
             })
-            .eq('id', abono.id);
+            .eq('id', socioId);
 
         if (updateError) throw updateError;
         return true;
+    }
+
+    async removeAbono(socioId: string, accessToken: string) {
+        const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+        const { data, error } = await client
+            .from('socios')
+            .update({
+                id_tipo_abono: null,
+                creditos_disponibles: 0,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', socioId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
     }
 }

@@ -8,7 +8,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @Controller('abonos')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AbonosController {
-    constructor(private readonly abonosService: AbonosService) { }
+    constructor(private readonly abonosService: AbonosService) {}
 
     // --- TYPES CRUD ---
 
@@ -42,17 +42,17 @@ export class AbonosController {
 
     // --- ASSIGNMENT ---
 
-    @Get()
-    @Roles('admin')
-    findAll(@Req() req: any) {
-        const token = req.headers.authorization.split(' ')[1];
-        return this.abonosService.findAll(token);
-    }
-
     @Post('assign')
     @Roles('admin')
     assign(@Body() dto: AssignAbonoDto, @Req() req: any) {
         const token = req.headers.authorization.split(' ')[1];
         return this.abonosService.assign(dto, token);
+    }
+
+    @Delete('assign/:socioId')
+    @Roles('admin')
+    removeAbono(@Param('socioId') socioId: string, @Req() req: any) {
+        const token = req.headers.authorization.split(' ')[1];
+        return this.abonosService.removeAbono(socioId, token);
     }
 }

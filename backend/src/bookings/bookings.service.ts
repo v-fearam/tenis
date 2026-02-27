@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { AbonosService } from '../abonos/abonos.service';
 import { CreateBookingDto, BookingStatus, MatchType } from './dto/booking.dto';
+import { PaginationDto, PaginatedResponseDto } from '../common/dto';
 
 // Fallback defaults if database config is missing
 const DEFAULT_PRICES = {
@@ -13,10 +15,18 @@ const DEFAULT_PRICES = {
 
 @Injectable()
 export class BookingsService {
+    private readonly defaultPageSize: number;
+
     constructor(
         private readonly supabaseService: SupabaseService,
-        private readonly abonosService: AbonosService
-    ) { }
+        private readonly abonosService: AbonosService,
+        private readonly configService: ConfigService,
+    ) {
+        this.defaultPageSize = this.configService.get<number>(
+            'PAGINATION_PAGE_SIZE',
+            20,
+        );
+    }
 
     async create(createBookingDto: CreateBookingDto, creatorId: string | null, accessToken: string | null) {
         console.log('Creating booking for user:', creatorId || 'anonymous');
@@ -110,20 +120,44 @@ export class BookingsService {
         return this.mapToFrontendStructure(booking);
     }
 
-    async findAll(accessToken?: string) {
+    async findAll(
+        paginationDto: PaginationDto,
+        accessToken?: string,
+    ): Promise<PaginatedResponseDto<any>> {
         const client = this.supabaseService.getOptionalClient(accessToken);
+        const page = paginationDto.page || 1;
+        const pageSize = paginationDto.pageSize || this.defaultPageSize;
+        const offset = (page - 1) * pageSize;
+
+        // Get total count
+        const { count, error: countError } = await client
+            .from('turnos')
+            .select('*', { count: 'exact', head: true });
+
+        if (countError) throw countError;
+
+        // Get paginated data
         const { data, error } = await client
             .from('turnos')
             .select('*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)')
             .order('fecha', { ascending: false })
-            .order('hora_inicio', { ascending: false });
+            .order('hora_inicio', { ascending: false })
+            .range(offset, offset + pageSize - 1);
 
         if (error) throw error;
-        return data.map(b => this.mapToFrontendStructure(b));
+
+        const mappedData = (data || []).map(b => this.mapToFrontendStructure(b));
+        return PaginatedResponseDto.create(mappedData, page, pageSize, count || 0);
     }
 
-    async findActive(accessToken: string) {
+    async findActive(
+        paginationDto: PaginationDto,
+        accessToken: string,
+    ): Promise<PaginatedResponseDto<any>> {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
+        const page = paginationDto.page || 1;
+        const pageSize = paginationDto.pageSize || this.defaultPageSize;
+        const offset = (page - 1) * pageSize;
 
         const timeZone = 'America/Argentina/Buenos_Aires';
         const dateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -134,16 +168,29 @@ export class BookingsService {
         });
         const today = dateFormatter.format(new Date());
 
+        // Get total count for active bookings
+        const { count, error: countError } = await client
+            .from('turnos')
+            .select('*', { count: 'exact', head: true })
+            .eq('estado', 'confirmado')
+            .gte('fecha', today);
+
+        if (countError) throw countError;
+
+        // Get paginated data
         const { data, error } = await client
             .from('turnos')
             .select('*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)')
             .eq('estado', 'confirmado')
             .gte('fecha', today)
             .order('fecha', { ascending: true })
-            .order('hora_inicio', { ascending: true });
+            .order('hora_inicio', { ascending: true })
+            .range(offset, offset + pageSize - 1);
 
         if (error) throw error;
-        return data.map(b => this.mapToFrontendStructure(b));
+
+        const mappedData = (data || []).map(b => this.mapToFrontendStructure(b));
+        return PaginatedResponseDto.create(mappedData, page, pageSize, count || 0);
     }
 
     async confirm(bookingId: string, accessToken: string) {

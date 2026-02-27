@@ -1,4 +1,11 @@
 import { IsNotEmpty, IsEnum, IsDateString, IsString, IsOptional, IsInt } from 'class-validator';
+import { PaginationDto } from '../../common/dto';
+
+export class BloqueoQueryDto extends PaginationDto {
+    @IsOptional()
+    @IsDateString()
+    fecha?: string;
+}
 
 export enum BloqueoTipo {
     TORNEO = 'torneo',

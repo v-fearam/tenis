@@ -1,10 +1,22 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { CreateBloqueoDto } from './dto/bloqueo.dto';
+import { PaginationDto, PaginatedResponseDto } from '../common/dto';
 
 @Injectable()
 export class BloqueosService {
-    constructor(private readonly supabaseService: SupabaseService) { }
+    private readonly defaultPageSize: number;
+
+    constructor(
+        private readonly supabaseService: SupabaseService,
+        private readonly configService: ConfigService,
+    ) {
+        this.defaultPageSize = this.configService.get<number>(
+            'PAGINATION_PAGE_SIZE',
+            20,
+        );
+    }
 
     async create(createBloqueoDto: CreateBloqueoDto, creatorId: string, accessToken: string) {
         const client = this.supabaseService.getAuthenticatedClient(accessToken);
@@ -56,19 +68,39 @@ export class BloqueosService {
         return data;
     }
 
-    async findAll(accessToken?: string) {
+    async findAll(
+        paginationDto: PaginationDto,
+        accessToken?: string,
+    ): Promise<PaginatedResponseDto<any>> {
         const client = this.supabaseService.getOptionalClient(accessToken);
+        const page = paginationDto.page || 1;
+        const pageSize = paginationDto.pageSize || this.defaultPageSize;
+        const offset = (page - 1) * pageSize;
+
+        // Get total count
+        const { count, error: countError } = await client
+            .from('bloqueos')
+            .select('*', { count: 'exact', head: true });
+
+        if (countError) {
+            console.error('Error counting bloqueos:', countError);
+            throw new InternalServerErrorException('Error al contar los bloqueos');
+        }
+
+        // Get paginated data
         const { data, error } = await client
             .from('bloqueos')
             .select('*, canchas(nombre)')
             .order('fecha', { ascending: false })
-            .order('hora_inicio', { ascending: false });
+            .order('hora_inicio', { ascending: false })
+            .range(offset, offset + pageSize - 1);
 
         if (error) {
             console.error('Error fetching bloqueos:', error);
             throw new InternalServerErrorException('Error al obtener los bloqueos');
         }
-        return data;
+
+        return PaginatedResponseDto.create(data || [], page, pageSize, count || 0);
     }
 
     async findByDate(fecha: string, accessToken?: string) {

@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
 import { BloqueosService } from './bloqueos.service';
-import { CreateBloqueoDto } from './dto/bloqueo.dto';
+import { CreateBloqueoDto, BloqueoQueryDto } from './dto/bloqueo.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,11 +10,14 @@ export class BloqueosController {
     constructor(private readonly bloqueosService: BloqueosService) { }
 
     @Get()
-    findAll(@Req() req: any, @Query('fecha') fecha?: string) {
-        if (fecha) {
-            return this.bloqueosService.findByDate(fecha, req?.accessToken);
+    findAll(
+        @Query() query: BloqueoQueryDto,
+        @Req() req: any,
+    ) {
+        if (query.fecha) {
+            return this.bloqueosService.findByDate(query.fecha, req?.accessToken);
         }
-        return this.bloqueosService.findAll(req?.accessToken);
+        return this.bloqueosService.findAll(query, req?.accessToken);
     }
 
     @Post()

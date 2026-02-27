@@ -3,6 +3,9 @@ import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
 import { Search, Plus, Edit2, X, UserCheck, UserX } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
+import { usePagination } from '../hooks/usePagination';
+import type { PaginatedResponse } from '../types/pagination';
+import PaginationControls from '../components/PaginationControls';
 
 type ModalMode = 'create' | 'edit' | null;
 
@@ -16,6 +19,8 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
+  const pagination = usePagination();
+
   // Form state
   const [formData, setFormData] = useState({
     nombre: '',
@@ -28,14 +33,18 @@ export default function AdminUsers() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const data = await api.get<Usuario[]>('/users');
-      setUsers(data);
+      const params = pagination.getQueryParams();
+      const response = await api.get<PaginatedResponse<Usuario>>(
+        `/users?page=${params.page}&pageSize=${params.pageSize}`
+      );
+      setUsers(response.data);
+      pagination.setMeta(response.meta);
     } catch (err) {
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     fetchUsers();
@@ -165,7 +174,7 @@ export default function AdminUsers() {
               Gestión de Usuarios
             </h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              {users.length} usuarios registrados
+              {pagination.meta?.totalItems || 0} usuarios registrados
             </p>
           </div>
         </div>
@@ -280,6 +289,16 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      <PaginationControls
+        meta={pagination.meta}
+        onPageChange={pagination.goToPage}
+        onNext={pagination.nextPage}
+        onPrevious={pagination.previousPage}
+        onFirst={pagination.firstPage}
+        onLast={pagination.lastPage}
+      />
 
       {/* Modal */}
       {modalMode && (

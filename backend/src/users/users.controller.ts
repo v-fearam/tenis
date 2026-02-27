@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { PaginationDto } from '../common/dto';
 
 @Controller('users')
 export class UsersPublicController {
@@ -52,15 +53,19 @@ export class UsersController {
   @Get('search')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  search(@Query('q') query: string, @Req() req: any) {
-    return this.usersService.search(query || '', req.accessToken);
+  search(
+    @Query('q') query: string,
+    @Query() paginationDto: PaginationDto,
+    @Req() req: any,
+  ) {
+    return this.usersService.search(query || '', paginationDto, req.accessToken);
   }
 
   @Get()
   @UseGuards(RolesGuard)
   @Roles('admin')
-  findAll(@Req() req: any) {
-    return this.usersService.findAll(req.accessToken);
+  findAll(@Query() paginationDto: PaginationDto, @Req() req: any) {
+    return this.usersService.findAll(paginationDto, req.accessToken);
   }
 
   @Get(':id')

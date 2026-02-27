@@ -117,8 +117,11 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
             try {
                 const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
-                // Fetch all bookings and filter for the selected date
-                const bookingsData = await api.get<any[]>('/bookings');
+                // Fetch all bookings with large pageSize to get all results
+                // The response is now paginated: { data: [], meta: {} }
+                const bookingsResponse = await api.get<{ data: any[] }>('/bookings?pageSize=1000');
+                const bookingsData = bookingsResponse.data || [];
+
                 const filteredBookings = bookingsData
                     .filter(b => b.start_time.split('T')[0] === selectedDateStr && b.status !== 'cancelled')
                     .map(b => ({
@@ -130,7 +133,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     }));
                 setBookings(filteredBookings);
 
-                // Fetch bloqueos for the selected date
+                // Fetch bloqueos for the selected date (this endpoint still returns array when fecha param is provided)
                 const bloqueosData = await api.get<any[]>(`/bloqueos?fecha=${selectedDateStr}`);
                 setBloqueos(bloqueosData);
 

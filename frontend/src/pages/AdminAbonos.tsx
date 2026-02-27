@@ -1,278 +1,563 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
-    CreditCard, User, Calendar,
-    CheckCircle2, Plus, Search,
-    ArrowRight, Info, TrendingUp
+  CreditCard, Plus, Search, Edit2, Trash2, X, UserMinus,
+  TrendingUp, CheckCircle2,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
-
-interface Abono {
-    id: string;
-    id_socio: string;
-    tipo: string;
-    mes_anio: string;
-    creditos_totales: number;
-    creditos_disponibles: number;
-    precio_lista_mes: number;
-    activo: boolean;
-}
+import { usePagination } from '../hooks/usePagination';
+import type { PaginatedResponse } from '../types/pagination';
+import PaginationControls from '../components/PaginationControls';
+import type { TipoAbono } from '../types/abono';
 
 interface Socio {
-    id: string;
-    nro_socio: number;
-    usuario: {
-        id: string;
-        nombre: string;
-        email: string;
-    };
-    currentAbono?: Abono;
+  id: string;
+  nro_socio: number;
+  id_tipo_abono: string | null;
+  creditos_disponibles: number;
+  tipo_abono: TipoAbono | null;
 }
 
-const ABONO_TYPES = [
-    { id: 'Basico', label: 'Básico', turns: 4, price: 15000, color: '#3498DB' },
-    { id: 'Intermedio', label: 'Intermedio', turns: 6, price: 20000, color: '#9B59B6' },
-    { id: 'Avanzado', label: 'Avanzado', turns: 20, price: 30000, color: '#F1C40F' }
-];
+interface UsuarioConSocio {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  socios: Socio[] | Socio | null;
+}
+
+interface SocioConUsuario {
+  socio: Socio;
+  usuario: { id: string; nombre: string; email: string };
+}
+
+type TypeModalMode = 'create' | 'edit' | null;
 
 export default function AdminAbonos() {
-    const [socios, setSocios] = useState<Socio[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-    const [assigningTo, setAssigningTo] = useState<Socio | null>(null);
+  // --- Types state ---
+  const [tipos, setTipos] = useState<TipoAbono[]>([]);
+  const [loadingTipos, setLoadingTipos] = useState(true);
+  const [typeModal, setTypeModal] = useState<TypeModalMode>(null);
+  const [editingType, setEditingType] = useState<TipoAbono | null>(null);
+  const [typeForm, setTypeForm] = useState({ nombre: '', creditos: '', precio: '', color: '#3498DB' });
+  const [typeFormError, setTypeFormError] = useState('');
+  const [savingType, setSavingType] = useState(false);
 
-    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
+  // --- Socios state ---
+  const [sociosList, setSociosList] = useState<SocioConUsuario[]>([]);
+  const [loadingSocios, setLoadingSocios] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [assigningTo, setAssigningTo] = useState<string | null>(null); // socio id
 
-    const fetchData = async () => {
-        try {
-            const [sociosData, abonosData] = await Promise.all([
-                api.get<any[]>('/users'),
-                api.get<Abono[]>('/abonos')
-            ]);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const pagination = usePagination();
 
-            // Filter only users with socio role and map them
-            const mappedSocios = sociosData
-                .filter(u => u.rol === 'socio' && u.socios?.length > 0)
-                .map(u => ({
-                    id: u.socios[0].id,
-                    nro_socio: u.socios[0].nro_socio,
-                    usuario: {
-                        id: u.id,
-                        nombre: u.nombre,
-                        email: u.email
-                    },
-                    currentAbono: abonosData.find(a => a.id_socio === u.socios[0].id && a.mes_anio === currentMonth && a.activo)
-                }));
+  // --- Fetch Types ---
+  const fetchTipos = useCallback(async () => {
+    try {
+      const data = await api.get<TipoAbono[]>('/abonos/types');
+      setTipos(data);
+    } catch (err) {
+      console.error('Error fetching tipos:', err);
+    } finally {
+      setLoadingTipos(false);
+    }
+  }, []);
 
-            setSocios(mappedSocios);
-        } catch (err) {
-            console.error('Error fetching data:', err);
-        } finally {
-            setLoading(false);
+  // --- Fetch Socios ---
+  const fetchSocios = useCallback(async () => {
+    try {
+      const params = pagination.getQueryParams();
+      const response = await api.get<PaginatedResponse<UsuarioConSocio>>(
+        `/users?page=${params.page}&pageSize=${params.pageSize}`
+      );
+      // Normalize: socios can be array, object, or null depending on Supabase
+      const mapped: SocioConUsuario[] = [];
+      for (const u of response.data) {
+        const socioArr = Array.isArray(u.socios) ? u.socios : u.socios ? [u.socios] : [];
+        if (socioArr.length > 0) {
+          mapped.push({
+            socio: socioArr[0],
+            usuario: { id: u.id, nombre: u.nombre, email: u.email },
+          });
         }
+      }
+      setSociosList(mapped);
+      pagination.setMeta(response.meta);
+    } catch (err) {
+      console.error('Error fetching socios:', err);
+    } finally {
+      setLoadingSocios(false);
+    }
+  }, [pagination.page, pagination.pageSize]);
+
+  useEffect(() => { fetchTipos(); }, [fetchTipos]);
+  useEffect(() => { fetchSocios(); }, [fetchSocios]);
+
+  // --- Type CRUD Handlers ---
+  const openCreateType = () => {
+    setTypeForm({ nombre: '', creditos: '', precio: '', color: '#3498DB' });
+    setEditingType(null);
+    setTypeFormError('');
+    setTypeModal('create');
+  };
+
+  const openEditType = (tipo: TipoAbono) => {
+    setTypeForm({
+      nombre: tipo.nombre,
+      creditos: String(tipo.creditos),
+      precio: String(tipo.precio),
+      color: tipo.color || '#3498DB',
+    });
+    setEditingType(tipo);
+    setTypeFormError('');
+    setTypeModal('edit');
+  };
+
+  const closeTypeModal = () => {
+    setTypeModal(null);
+    setEditingType(null);
+    setTypeFormError('');
+  };
+
+  const handleSaveType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTypeFormError('');
+    setSavingType(true);
+
+    const payload = {
+      nombre: typeForm.nombre,
+      creditos: Number(typeForm.creditos),
+      precio: Number(typeForm.precio),
+      color: typeForm.color,
     };
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    try {
+      if (typeModal === 'create') {
+        await api.post('/abonos/types', payload);
+        setToast({ message: 'Tipo de abono creado', type: 'success' });
+      } else if (typeModal === 'edit' && editingType) {
+        await api.patch(`/abonos/types/${editingType.id}`, payload);
+        setToast({ message: 'Tipo de abono actualizado', type: 'success' });
+      }
+      closeTypeModal();
+      await fetchTipos();
+    } catch (err: any) {
+      setTypeFormError(err.message || 'Error al guardar');
+    } finally {
+      setSavingType(false);
+    }
+  };
 
-    const handleAssign = async (socioId: string, type: string) => {
-        try {
-            await api.post('/abonos/assign', {
-                socio_id: socioId,
-                tipo: type,
-                mes_anio: currentMonth
-            });
-            setToast({ message: 'Abono asignado correctamente', type: 'success' });
-            setAssigningTo(null);
-            fetchData();
-        } catch (err: any) {
-            setToast({ message: err.message || 'Error al asignar abono', type: 'error' });
-        }
-    };
+  const handleDeleteType = async (tipo: TipoAbono) => {
+    if (!confirm(`¿Eliminar el tipo de abono "${tipo.nombre}"?`)) return;
+    try {
+      await api.delete(`/abonos/types/${tipo.id}`);
+      setToast({ message: 'Tipo de abono eliminado', type: 'success' });
+      await fetchTipos();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error al eliminar', type: 'error' });
+    }
+  };
 
-    const filteredSocios = socios.filter(s =>
-        s.usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.usuario.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.nro_socio.toString().includes(searchTerm)
-    );
+  // --- Assignment Handlers ---
+  const handleAssign = async (socioId: string, tipoAbonoId: string) => {
+    try {
+      await api.post('/abonos/assign', { socio_id: socioId, tipo_abono_id: tipoAbonoId });
+      setToast({ message: 'Abono asignado correctamente', type: 'success' });
+      setAssigningTo(null);
+      await fetchSocios();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error al asignar abono', type: 'error' });
+    }
+  };
 
+  const handleRemoveAbono = async (socioId: string) => {
+    if (!confirm('¿Quitar el abono de este socio?')) return;
+    try {
+      await api.delete(`/abonos/assign/${socioId}`);
+      setToast({ message: 'Abono removido', type: 'success' });
+      await fetchSocios();
+    } catch (err: any) {
+      setToast({ message: err.message || 'Error al quitar abono', type: 'error' });
+    }
+  };
+
+  // --- Filtered socios ---
+  const filteredSocios = searchTerm
+    ? sociosList.filter(s =>
+      s.usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.usuario.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.socio.nro_socio.toString().includes(searchTerm)
+    )
+    : sociosList;
+
+  const loading = loadingTipos || loadingSocios;
+
+  if (loading) {
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-main)' }}>
-            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
-            <main style={{ padding: '40px' }}>
-                <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <div>
-                        <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-1px', marginBottom: '4px' }}>Gestión de Abonos</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Suscripciones mensuales y control de turnos</p>
-                    </div>
-                    <div style={{ background: 'var(--brand-blue-pastel)', padding: '12px 20px', borderRadius: '12px', border: '1px solid var(--brand-blue-alpha)' }}>
-                        <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--brand-blue)', textTransform: 'uppercase', marginBottom: '4px' }}>Mes Actual</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Calendar size={18} />
-                            {new Date().toLocaleString('es-ES', { month: 'long', year: 'numeric' })}
-                        </div>
-                    </div>
-                </header>
-
-                <div className="card glass" style={{ padding: '24px', marginBottom: '32px' }}>
-                    <div style={{ position: 'relative' }}>
-                        <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={20} />
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre, email o nro de socio..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="form-input"
-                            style={{ paddingLeft: '48px' }}
-                        />
-                    </div>
-                </div>
-
-                <div className="card glass" style={{ overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ background: 'rgba(255,255,255,0.05)', textAlign: 'left' }}>
-                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Socio</th>
-                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Estado Abono</th>
-                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase' }}>Créditos</th>
-                                <th style={{ padding: '16px 24px', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', textAlign: 'right' }}>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredSocios.map(socio => (
-                                <tr key={socio.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                    <td style={{ padding: '16px 24px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--brand-blue-pastel)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--brand-blue)', fontWeight: '800' }}>
-                                                {socio.usuario.nombre.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <div style={{ fontWeight: '700' }}>{socio.usuario.nombre}</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Socio #{socio.nro_socio}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '16px 24px' }}>
-                                        {socio.currentAbono ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{
-                                                    padding: '4px 12px',
-                                                    borderRadius: '20px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: '700',
-                                                    background: ABONO_TYPES.find(t => t.id === socio.currentAbono?.tipo)?.color + '22',
-                                                    color: ABONO_TYPES.find(t => t.id === socio.currentAbono?.tipo)?.color,
-                                                    border: `1px solid ${ABONO_TYPES.find(t => t.id === socio.currentAbono?.tipo)?.color}44`
-                                                }}>
-                                                    {socio.currentAbono.tipo}
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Sin abono activo</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '16px 24px' }}>
-                                        {socio.currentAbono ? (
-                                            <div style={{ width: '120px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
-                                                    <span>Uso</span>
-                                                    <span style={{ fontWeight: '700' }}>
-                                                        {socio.currentAbono.creditos_totales - socio.currentAbono.creditos_disponibles}/{socio.currentAbono.creditos_totales}
-                                                    </span>
-                                                </div>
-                                                <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                    <div style={{
-                                                        height: '100%',
-                                                        width: `${((socio.currentAbono.creditos_totales - socio.currentAbono.creditos_disponibles) / socio.currentAbono.creditos_totales) * 100}%`,
-                                                        background: 'var(--brand-blue)',
-                                                        transition: 'width 0.5s ease'
-                                                    }} />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-muted)' }}>-</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: '16px 24px', textAlign: 'right' }}>
-                                        {assigningTo?.id === socio.id ? (
-                                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                                {ABONO_TYPES.map(type => (
-                                                    <button
-                                                        key={type.id}
-                                                        onClick={() => handleAssign(socio.id, type.id)}
-                                                        className="btn-primary"
-                                                        style={{
-                                                            padding: '6px 12px',
-                                                            fontSize: '0.75rem',
-                                                            background: type.color
-                                                        }}
-                                                        title={`${type.turns} turnos - $${type.price}`}
-                                                    >
-                                                        {type.label}
-                                                    </button>
-                                                ))}
-                                                <button onClick={() => setAssigningTo(null)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.75rem' }}>✕</button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setAssigningTo(socio)}
-                                                className="btn-primary"
-                                                style={{ padding: '8px 16px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                                            >
-                                                <Plus size={16} />
-                                                {socio.currentAbono ? 'Cambiar Plan' : 'Cargar Abono'}
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {filteredSocios.length === 0 && !loading && (
-                        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                            <Search size={40} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                            <p>No se encontraron socios con los criterios de búsqueda.</p>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
-                    {ABONO_TYPES.map(type => (
-                        <div key={type.id} className="card glass" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '80px', height: '80px', background: type.color, opacity: 0.1, borderRadius: '50%' }} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                                <div style={{ padding: '10px', borderRadius: '12px', background: type.color + '22', color: type.color }}>
-                                    <TrendingUp size={24} />
-                                </div>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800' }}>Abono {type.label}</h3>
-                            </div>
-                            <div style={{ marginBottom: '20px' }}>
-                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text-main)' }}>
-                                    ${type.price.toLocaleString()}
-                                    <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: '500' }}>/mes</span>
-                                </div>
-                            </div>
-                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', marginBottom: '12px' }}>
-                                    <CheckCircle2 size={18} style={{ color: 'var(--brand-green)' }} />
-                                    <span><strong>{type.turns}</strong> turnos incluidos por mes</span>
-                                </li>
-                                <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)', marginBottom: '12px' }}>
-                                    <CheckCircle2 size={18} style={{ color: 'var(--brand-green)' }} />
-                                    <span>Acceso a todas las canchas</span>
-                                </li>
-                                <li style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)' }}>
-                                    <CheckCircle2 size={18} style={{ color: 'var(--brand-green)' }} />
-                                    <span>Prioridad en reservas</span>
-                                </li>
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-            </main>
-        </div>
+      <div className="container" style={{ display: 'flex', justifyContent: 'center', paddingTop: '100px' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Cargando abonos...</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="container">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Header */}
+      <header style={{ marginBottom: '32px' }}>
+        <h1 style={{ color: 'var(--brand-blue)', fontSize: '1.5rem', fontWeight: '800' }}>
+          Gestión de Abonos
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+          Tipos de abono y asignación a socios
+        </p>
+      </header>
+
+      {/* === SECTION 1: Tipos de Abono === */}
+      <div style={{ marginBottom: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '700' }}>Tipos de Abono</h2>
+          <button className="btn-primary" onClick={openCreateType} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Plus size={18} /> Nuevo Tipo
+          </button>
+        </div>
+
+        {tipos.length === 0 ? (
+          <div className="card" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            No hay tipos de abono creados.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            {tipos.map(tipo => (
+              <div key={tipo.id} className="card" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', top: '-10px', right: '-10px',
+                  width: '80px', height: '80px',
+                  background: tipo.color || '#3498DB', opacity: 0.1, borderRadius: '50%',
+                }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{
+                    padding: '10px', borderRadius: '12px',
+                    background: (tipo.color || '#3498DB') + '22',
+                    color: tipo.color || '#3498DB',
+                  }}>
+                    <TrendingUp size={24} />
+                  </div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', flex: 1 }}>{tipo.nombre}</h3>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button onClick={() => openEditType(tipo)} title="Editar" style={iconBtnStyle}>
+                      <Edit2 size={14} />
+                    </button>
+                    <button onClick={() => handleDeleteType(tipo)} title="Eliminar" style={{ ...iconBtnStyle, color: '#E74C3C' }}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div style={{ fontSize: '2rem', fontWeight: '900', marginBottom: '8px' }}>
+                  ${tipo.precio.toLocaleString()}
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '500' }}>/mes</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
+                  <CheckCircle2 size={16} style={{ color: 'var(--brand-green, #27AE60)' }} />
+                  <span><strong>{tipo.creditos}</strong> créditos</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* === SECTION 2: Socios y Asignación === */}
+      <div>
+        <h2 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px' }}>Asignación de Abonos</h2>
+
+        {/* Search */}
+        <div className="card" style={{ marginBottom: '24px', padding: '16px' }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, email o nro de socio..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%', padding: '12px 12px 12px 40px',
+                borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
+                fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Socios Table */}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-main)', borderBottom: '2px solid var(--border)' }}>
+                <th style={thStyle}>Socio</th>
+                <th style={thStyle}>Abono</th>
+                <th style={thStyle}>Créditos</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSocios.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    {searchTerm ? 'No se encontraron socios.' : 'No hay socios registrados.'}
+                  </td>
+                </tr>
+              ) : (
+                filteredSocios.map(({ socio, usuario }) => {
+                  const tipoAbono = socio.tipo_abono;
+                  return (
+                    <tr key={socio.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '50%',
+                            background: 'var(--brand-blue-pastel, #D6EAF8)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: 'var(--brand-blue)', fontWeight: '800', fontSize: '0.85rem',
+                          }}>
+                            {usuario.nombre.charAt(0)}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '700', fontSize: '0.9rem' }}>{usuario.nombre}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Socio #{socio.nro_socio}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={tdStyle}>
+                        {tipoAbono ? (
+                          <span style={{
+                            padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700',
+                            background: (tipoAbono.color || '#3498DB') + '22',
+                            color: tipoAbono.color || '#3498DB',
+                            border: `1px solid ${(tipoAbono.color || '#3498DB')}44`,
+                          }}>
+                            {tipoAbono.nombre}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Sin abono</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>
+                        {tipoAbono ? (
+                          <div style={{ width: '120px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
+                              <span>Disponibles</span>
+                              <span style={{ fontWeight: '700' }}>
+                                {socio.creditos_disponibles}/{tipoAbono.creditos}
+                              </span>
+                            </div>
+                            <div style={{ height: '6px', background: 'var(--border, #eee)', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${tipoAbono.creditos > 0 ? (socio.creditos_disponibles / tipoAbono.creditos) * 100 : 0}%`,
+                                background: tipoAbono.color || 'var(--brand-blue)',
+                                transition: 'width 0.5s ease',
+                              }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        {assigningTo === socio.id ? (
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                            {tipos.map(tipo => (
+                              <button
+                                key={tipo.id}
+                                onClick={() => handleAssign(socio.id, tipo.id)}
+                                className="btn-primary"
+                                style={{
+                                  padding: '4px 10px', fontSize: '0.75rem',
+                                  background: tipo.color || '#3498DB',
+                                }}
+                                title={`${tipo.creditos} créditos - $${tipo.precio}`}
+                              >
+                                {tipo.nombre}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setAssigningTo(null)}
+                              style={{ ...iconBtnStyle, padding: '4px 8px' }}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                            <button
+                              onClick={() => setAssigningTo(socio.id)}
+                              className="btn-primary"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <CreditCard size={14} />
+                              {tipoAbono ? 'Cambiar' : 'Asignar'}
+                            </button>
+                            {tipoAbono && (
+                              <button
+                                onClick={() => handleRemoveAbono(socio.id)}
+                                title="Quitar abono"
+                                style={{ ...iconBtnStyle, color: '#E74C3C' }}
+                              >
+                                <UserMinus size={14} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <PaginationControls
+          meta={pagination.meta}
+          onPageChange={pagination.goToPage}
+          onNext={pagination.nextPage}
+          onPrevious={pagination.previousPage}
+          onFirst={pagination.firstPage}
+          onLast={pagination.lastPage}
+        />
+      </div>
+
+      {/* === Type Modal === */}
+      {typeModal && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }} onClick={closeTypeModal}>
+          <div
+            className="card"
+            style={{ width: '100%', maxWidth: '450px', padding: '32px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '700' }}>
+                {typeModal === 'create' ? 'Nuevo Tipo de Abono' : 'Editar Tipo de Abono'}
+              </h2>
+              <button onClick={closeTypeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {typeFormError && (
+              <div style={{
+                background: '#FADBD8', color: '#E74C3C',
+                padding: '12px', borderRadius: 'var(--radius-sm)',
+                marginBottom: '16px', fontSize: '0.875rem',
+              }}>
+                {typeFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveType}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <FormField label="Nombre" required>
+                  <input
+                    type="text"
+                    value={typeForm.nombre}
+                    onChange={(e) => setTypeForm({ ...typeForm, nombre: e.target.value })}
+                    required
+                    style={inputStyle}
+                    placeholder="Ej: Básico, Premium..."
+                  />
+                </FormField>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <FormField label="Créditos" required>
+                    <input
+                      type="number"
+                      value={typeForm.creditos}
+                      onChange={(e) => setTypeForm({ ...typeForm, creditos: e.target.value })}
+                      required
+                      min="1"
+                      style={inputStyle}
+                      placeholder="Ej: 10"
+                    />
+                  </FormField>
+                  <FormField label="Precio ($)" required>
+                    <input
+                      type="number"
+                      value={typeForm.precio}
+                      onChange={(e) => setTypeForm({ ...typeForm, precio: e.target.value })}
+                      required
+                      min="0"
+                      step="0.01"
+                      style={inputStyle}
+                      placeholder="Ej: 15000"
+                    />
+                  </FormField>
+                </div>
+
+                <FormField label="Color">
+                  <input
+                    type="color"
+                    value={typeForm.color}
+                    onChange={(e) => setTypeForm({ ...typeForm, color: e.target.value })}
+                    style={{ ...inputStyle, height: '42px', padding: '4px', cursor: 'pointer' }}
+                  />
+                </FormField>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '28px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn-secondary" onClick={closeTypeModal}>
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary" disabled={savingType} style={{ opacity: savingType ? 0.7 : 1 }}>
+                  {savingType ? 'Guardando...' : typeModal === 'create' ? 'Crear Tipo' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
+
+function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{
+        display: 'block', fontSize: '0.8rem', fontWeight: '600',
+        color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px',
+      }}>
+        {label} {required && <span style={{ color: '#E74C3C' }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '14px 16px', textAlign: 'left', fontSize: '0.75rem',
+  fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '14px 16px', fontSize: '0.9rem',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+  border: '1px solid var(--border)', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+};
+
+const iconBtnStyle: React.CSSProperties = {
+  background: 'none', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+  padding: '6px', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center',
+};
