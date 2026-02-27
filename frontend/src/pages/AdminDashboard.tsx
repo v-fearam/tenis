@@ -42,20 +42,8 @@ export default function AdminDashboard() {
         return in30Days.toISOString().split('T')[0];
     });
 
-    const pendingBookings = bookings.filter(b => b.status === 'pending');
-
-    const filterBookingsByDate = (bookings: Booking[]) => {
-        const from = new Date(dateFrom);
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        return bookings.filter(b => {
-            const bookingDate = new Date(b.start_time);
-            return bookingDate >= from && bookingDate <= to;
-        });
-    };
-
-    const filteredPending = filterBookingsByDate(pendingBookings);
-    const filteredActive = filterBookingsByDate(activeBookings);
+    const filteredPending = bookings;
+    const filteredActive = activeBookings;
 
     const isActiveBooking = (booking: Booking) => {
         const today = new Date();
@@ -71,7 +59,7 @@ export default function AdminDashboard() {
 
                 const [bookingsResponse, activeResponse, usersCount] = await Promise.all([
                     api.get<PaginatedResponse<Booking>>(
-                        `/bookings?page=${pendingParams.page}&pageSize=${pendingParams.pageSize}`
+                        `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
                     ),
                     api.get<PaginatedResponse<Booking>>(
                         `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}`
@@ -94,7 +82,7 @@ export default function AdminDashboard() {
         };
 
         fetchDashboardData();
-    }, [paginationPending.page, paginationActive.page]);
+    }, [paginationPending.page, paginationActive.page, dateFrom, dateTo]);
 
     const handleConfirm = async (id: string) => {
         try {

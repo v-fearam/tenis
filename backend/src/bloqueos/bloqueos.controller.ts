@@ -17,7 +17,7 @@ export class BloqueosController {
         if (query.fecha) {
             return this.bloqueosService.findByDate(query.fecha, req?.accessToken);
         }
-        return this.bloqueosService.findAll(query, req?.accessToken);
+        return this.bloqueosService.findAll(query, req?.accessToken, query.fecha_desde, query.fecha_hasta);
     }
 
     @Post()

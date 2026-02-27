@@ -5,6 +5,14 @@ export class BloqueoQueryDto extends PaginationDto {
     @IsOptional()
     @IsDateString()
     fecha?: string;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_desde?: string;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_hasta?: string;
 }
 
 export enum BloqueoTipo {

@@ -71,6 +71,8 @@ export class BloqueosService {
     async findAll(
         paginationDto: PaginationDto,
         accessToken?: string,
+        fechaDesde?: string,
+        fechaHasta?: string,
     ): Promise<PaginatedResponseDto<any>> {
         const client = this.supabaseService.getOptionalClient(accessToken);
         const page = paginationDto.page || 1;
@@ -78,9 +80,13 @@ export class BloqueosService {
         const offset = (page - 1) * pageSize;
 
         // Get total count
-        const { count, error: countError } = await client
+        let countQuery = client
             .from('bloqueos')
             .select('*', { count: 'exact', head: true });
+        if (fechaDesde) countQuery = countQuery.gte('fecha', fechaDesde);
+        if (fechaHasta) countQuery = countQuery.lte('fecha', fechaHasta);
+
+        const { count, error: countError } = await countQuery;
 
         if (countError) {
             console.error('Error counting bloqueos:', countError);
@@ -88,12 +94,16 @@ export class BloqueosService {
         }
 
         // Get paginated data
-        const { data, error } = await client
+        let dataQuery = client
             .from('bloqueos')
             .select('*, canchas(nombre)')
             .order('fecha', { ascending: false })
             .order('hora_inicio', { ascending: false })
             .range(offset, offset + pageSize - 1);
+        if (fechaDesde) dataQuery = dataQuery.gte('fecha', fechaDesde);
+        if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
+
+        const { data, error } = await dataQuery;
 
         if (error) {
             console.error('Error fetching bloqueos:', error);

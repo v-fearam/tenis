@@ -41,17 +41,7 @@ export default function AdminBloqueos() {
         return in30Days.toISOString().split('T')[0];
     });
 
-    const filterBloqueosByDate = (bloqueos: Bloqueo[]) => {
-        const from = new Date(dateFrom);
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        return bloqueos.filter(b => {
-            const bloqueoDate = new Date(b.fecha + 'T12:00:00');
-            return bloqueoDate >= from && bloqueoDate <= to;
-        });
-    };
-
-    const filteredBloqueos = filterBloqueosByDate(bloqueos);
+    const filteredBloqueos = bloqueos;
 
     // Form State
     const [isCreating, setIsCreating] = useState(false);
@@ -69,7 +59,7 @@ export default function AdminBloqueos() {
         try {
             const params = pagination.getQueryParams();
             const response = await api.get<PaginatedResponse<Bloqueo>>(
-                `/bloqueos?page=${params.page}&pageSize=${params.pageSize}`
+                `/bloqueos?page=${params.page}&pageSize=${params.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
             );
             setBloqueos(response.data);
             pagination.setMeta(response.meta);
@@ -83,7 +73,7 @@ export default function AdminBloqueos() {
 
     useEffect(() => {
         fetchBloqueos();
-    }, [pagination.page]);
+    }, [pagination.page, dateFrom, dateTo]);
 
     const handleDelete = async (id: string) => {
         if (!confirm('¿Estás seguro de eliminar este bloqueo?')) return;
@@ -285,7 +275,7 @@ export default function AdminBloqueos() {
                 <div className="card" style={{ minHeight: '400px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                         <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--brand-blue)' }}>Bloqueos Registrados</h2>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{filteredBloqueos.length} de {bloqueos.length}</span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{pagination.meta?.totalItems || 0} resultado(s)</span>
                     </div>
 
                     <div style={{ overflowX: 'auto' }}>

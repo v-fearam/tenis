@@ -12,6 +12,7 @@ import {
     ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaginationDto } from '../../common/dto';
 
 export enum BookingStatus {
     PENDING = 'pending',
@@ -35,6 +36,20 @@ class BookingPlayerDto {
 
     @IsBoolean()
     is_organizer: boolean;
+}
+
+export class BookingQueryDto extends PaginationDto {
+    @IsOptional()
+    @IsString()
+    status?: string;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_desde?: string;
+
+    @IsOptional()
+    @IsDateString()
+    fecha_hasta?: string;
 }
 
 export class CreateBookingDto {

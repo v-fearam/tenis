@@ -123,26 +123,47 @@ export class BookingsService {
     async findAll(
         paginationDto: PaginationDto,
         accessToken?: string,
+        status?: string,
+        fechaDesde?: string,
+        fechaHasta?: string,
     ): Promise<PaginatedResponseDto<any>> {
         const client = this.supabaseService.getOptionalClient(accessToken);
         const page = paginationDto.page || 1;
         const pageSize = paginationDto.pageSize || this.defaultPageSize;
         const offset = (page - 1) * pageSize;
 
+        // Map frontend status to DB estado
+        const estadoMap: Record<string, string> = {
+            pending: 'pendiente',
+            confirmed: 'confirmado',
+            cancelled: 'cancelado',
+        };
+        const dbEstado = status ? estadoMap[status] : undefined;
+
         // Get total count
-        const { count, error: countError } = await client
+        let countQuery = client
             .from('turnos')
             .select('*', { count: 'exact', head: true });
+        if (dbEstado) countQuery = countQuery.eq('estado', dbEstado);
+        if (fechaDesde) countQuery = countQuery.gte('fecha', fechaDesde);
+        if (fechaHasta) countQuery = countQuery.lte('fecha', fechaHasta);
+
+        const { count, error: countError } = await countQuery;
 
         if (countError) throw countError;
 
         // Get paginated data
-        const { data, error } = await client
+        let dataQuery = client
             .from('turnos')
             .select('*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)')
             .order('fecha', { ascending: false })
             .order('hora_inicio', { ascending: false })
             .range(offset, offset + pageSize - 1);
+        if (dbEstado) dataQuery = dataQuery.eq('estado', dbEstado);
+        if (fechaDesde) dataQuery = dataQuery.gte('fecha', fechaDesde);
+        if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
+
+        const { data, error } = await dataQuery;
 
         if (error) throw error;
 

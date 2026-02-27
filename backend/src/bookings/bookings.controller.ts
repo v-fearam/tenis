@@ -10,7 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto } from './dto/booking.dto';
+import { CreateBookingDto, BookingQueryDto } from './dto/booking.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -46,8 +46,11 @@ export class BookingsController {
   }
 
   @Get()
-  findAll(@Query() paginationDto: PaginationDto, @Req() req: any) {
-    return this.bookingsService.findAll(paginationDto, req?.accessToken);
+  findAll(
+    @Query() query: BookingQueryDto,
+    @Req() req: any,
+  ) {
+    return this.bookingsService.findAll(query, req?.accessToken, query.status, query.fecha_desde, query.fecha_hasta);
   }
 
   @Get('courts')
