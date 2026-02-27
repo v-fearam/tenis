@@ -303,10 +303,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                         <div key={court.id} className="court-header">
                             <span className="court-name">{court.nombre}</span>
                             {hasLight && (
-                                <Lightbulb
-                                    className="court-light-icon"
-                                    title="Cancha con luz"
-                                />
+                                <Lightbulb className="court-light-icon" />
                             )}
                         </div>
                     );

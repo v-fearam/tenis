@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-    CreditCard, Calendar, User,
-    CheckCircle2, Clock, XCircle, Search, Filter
+    Calendar, Search
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
