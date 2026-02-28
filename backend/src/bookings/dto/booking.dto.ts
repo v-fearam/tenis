@@ -52,6 +52,24 @@ export class BookingQueryDto extends PaginationDto {
   fecha_hasta?: string;
 }
 
+class PreviewPlayerDto {
+  @IsOptional()
+  @IsUUID()
+  user_id?: string;
+
+  @IsOptional()
+  @IsString()
+  guest_name?: string;
+}
+
+export class PreviewBookingDto {
+  @IsArray()
+  @ArrayMinSize(2)
+  @ValidateNested({ each: true })
+  @Type(() => PreviewPlayerDto)
+  players: PreviewPlayerDto[];
+}
+
 export class CreateBookingDto {
   @IsInt()
   @Min(1)

@@ -149,8 +149,10 @@ export class AbonosService {
     return data;
   }
 
-  async consumeCredit(socioId: string, accessToken: string): Promise<boolean> {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+  async consumeCredit(socioId: string, accessToken?: string): Promise<boolean> {
+    const client = accessToken
+      ? this.supabaseService.getAuthenticatedClient(accessToken)
+      : this.supabaseService.getClient();
 
     const { data: socio, error } = await client
       .from('socios')

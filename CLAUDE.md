@@ -70,7 +70,7 @@ tenis/
 │   │   │   ├── abonos.controller.ts     # CRUD endpoints
 │   │   │   ├── abonos.service.ts        # Membership plan management
 │   │   │   └── dto/                     # DTOs for abonos
-│   │   ├── config/            # System configuration (monthly_parameters)
+│   │   ├── config/            # System configuration (config_sistema)
 │   │   │   ├── config.controller.ts     # GET (public), PATCH (admin)
 │   │   │   ├── config.service.ts        # Key-value config management
 │   │   │   └── dto/                     # UpdateConfigDto
@@ -137,11 +137,23 @@ tenis/
 - **Bot Protection**: `RecaptchaService` in `common/` verifies Google reCAPTCHA v3 tokens with configurable score threshold (min: 0.5)
 - **Authentication**: Supabase Auth with JWT validation in `JwtAuthGuard`, role-based access via `RolesGuard` + `@Roles()` decorator
 - **User management**: Admin creates users via `auth.admin.createUser()` → trigger auto-creates `usuarios` row → service creates `socios` row if role is socio
-- **Booking confirmation flow** (key business logic in `bookings.service.ts`):
-  1. Create booking with players → status `pending`
-  2. Admin confirms → fetches `monthly_parameters` for pricing, updates status to `confirmed`
-  3. For each player: looks up membership type, calculates proportional cost, inserts debt into `payments` table
+- **Booking cost calculation** (key business logic in `bookings.service.ts`):
+  1. **At creation** (`create()`): booking is created with status `pending`, cost is calculated immediately:
+     - Prices fetched from `config_sistema` table (keys: `precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`)
+     - Each player's cost = `base_tariff / total_players` (proportional split)
+     - Player tariff depends on membership tier:
+       - **Abono Libre**: $0 (free, unlimited play)
+       - **Abono x Partidos**: uses 1 credit → $0 (if credits available), otherwise socio rate
+       - **Socio sin abono**: `precio_socio_sin_abono` rate
+       - **No socio / Invitado**: `precio_no_socio` rate
+     - Abono credits are consumed immediately at booking creation
+     - Per-player cost stored in `turno_jugadores.monto_generado`, abono usage in `turno_jugadores.uso_abono`
+     - Total booking cost stored in `turnos.costo`
+  2. **At confirmation** (`confirm()`): admin confirms → generates `pagos` (debt records) from pre-calculated `monto_generado` values
+  3. **At cancellation** (`cancel()`): admin cancels → refunds abono credits for players with `uso_abono = true` (increments `socios.creditos_disponibles`)
+  4. **Cost preview** (`POST /api/bookings/preview`): estimates cost before submitting, using same pricing logic
 - **Membership tiers** affect pricing: Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio
+- **Pricing source**: `config_sistema` table is the single source of truth for all pricing. Keys are normalized (lowercase, spaces → underscores)
 
 ### Frontend (Vite + React + TypeScript)
 
@@ -176,7 +188,7 @@ tenis/
 
 ### Database (Supabase/PostgreSQL)
 
-Key tables: `usuarios`, `socios`, `bookings`, `booking_players`, `courts`, `court_blocks`, `monthly_parameters`, `payments`, `profiles` (legacy).
+Key tables: `usuarios`, `socios`, `turnos`, `turno_jugadores`, `canchas`, `bloqueos`, `tipos_abono`, `pagos`, `config_sistema`, `cierres_mensuales`.
 
 - `usuarios`: linked to `auth.users` via FK, stores nombre, dni, telefono, email, rol (admin/socio/no-socio), estado (activo/inactivo)
 - `socios`: linked to `usuarios`, stores nro_socio (auto-increment), activo flag
@@ -208,10 +220,11 @@ Key tables: `usuarios`, `socios`, `bookings`, `booking_players`, `courts`, `cour
 #### Bookings
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/bookings` | JWT | Create booking |
+| POST | `/api/bookings` | JWT | Create booking (calculates cost, consumes abono credits) |
+| POST | `/api/bookings/preview` | JWT | Preview booking cost before submitting |
 | GET | `/api/bookings` | JWT | List bookings |
-| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm booking + generate debt |
-| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking |
+| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm booking + generate debt from pre-calculated costs |
+| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking + refund abono credits |
 
 #### Courts (Canchas)
 | Method | Path | Auth | Description |

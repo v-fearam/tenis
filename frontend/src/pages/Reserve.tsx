@@ -100,7 +100,7 @@ export default function Reserve() {
             const startTime = new Date(bookingData.slot);
             const endTime = new Date(startTime.getTime() + (config.blockDuration * config.blocksPerTurn) * 60 * 1000);
 
-            await api.post('/bookings', {
+            const result = await api.post<{ costo: number }>('/bookings', {
                 court_id: bookingData.courtId,
                 start_time: startTime.toISOString(),
                 end_time: endTime.toISOString(),
@@ -119,8 +119,11 @@ export default function Reserve() {
                 // Include reCAPTCHA token
                 recaptcha_token: recaptchaToken,
             });
+            const costoMsg = result.costo > 0
+                ? ` Costo del turno: $${result.costo.toLocaleString('es-AR')}`
+                : '';
             setToast({
-                message: 'Reserva enviada exitosamente. Pendiente de confirmación.',
+                message: `Reserva enviada exitosamente. Pendiente de confirmación.${costoMsg}`,
                 type: 'success'
             });
             setBookingData(null);

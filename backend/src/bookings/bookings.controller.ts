@@ -11,7 +11,11 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
-import { CreateBookingDto, BookingQueryDto } from './dto/booking.dto';
+import {
+  CreateBookingDto,
+  BookingQueryDto,
+  PreviewBookingDto,
+} from './dto/booking.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -26,6 +30,11 @@ export class BookingsController {
     private readonly bookingsService: BookingsService,
     private readonly recaptchaService: RecaptchaService,
   ) {}
+
+  @Post('preview')
+  async preview(@Body() dto: PreviewBookingDto) {
+    return this.bookingsService.previewCost(dto.players);
+  }
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)

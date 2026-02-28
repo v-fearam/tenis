@@ -139,9 +139,10 @@ export class BookingsService {
       tipo_persona: p.user_id ? 'socio' : 'invitado',
     }));
 
-    const { error: playersError } = await client
+    const { data: insertedPlayers, error: playersError } = await client
       .from('turno_jugadores')
-      .insert(players);
+      .insert(players)
+      .select();
 
     if (playersError) {
       this.logger.error(
@@ -153,7 +154,27 @@ export class BookingsService {
       );
     }
 
-    return this.mapToFrontendStructure(booking);
+    // Calculate cost and consume abono credits at creation time
+    const costo = await this.calculateAndApplyCosts(
+      insertedPlayers,
+      client,
+    );
+
+    // Update turno with calculated cost
+    const { error: costoError } = await client
+      .from('turnos')
+      .update({ costo })
+      .eq('id', booking.id);
+
+    if (costoError) {
+      this.logger.error(`Error updating costo on turno: ${JSON.stringify(costoError)}`);
+    }
+
+    return this.mapToFrontendStructure({
+      ...booking,
+      costo,
+      turno_jugadores: insertedPlayers,
+    });
   }
 
   async findAll(
@@ -261,7 +282,6 @@ export class BookingsService {
       bookingId,
       accessToken,
     );
-    const prices = await this.getMonthlyPrices(rawBooking.fecha, accessToken);
 
     // Update booking status
     const { error: updateError } = await client
@@ -271,8 +291,11 @@ export class BookingsService {
 
     if (updateError) throw updateError;
 
-    // Generate debt for each player
-    await this.generatePlayerDebts(rawBooking, prices, accessToken);
+    // Generate debt entries from pre-calculated player costs
+    await this.generatePlayerDebtsFromPrecalculated(
+      rawBooking,
+      client,
+    );
 
     return this.mapToFrontendStructure(rawBooking);
   }
@@ -288,6 +311,39 @@ export class BookingsService {
 
     if (fetchError || !booking) {
       throw new NotFoundException('Reserva no encontrada');
+    }
+
+    // Refund abono credits for players that used them
+    const { data: playersWithAbono, error: abonoQueryError } = await client
+      .from('turno_jugadores')
+      .select('id_persona, uso_abono')
+      .eq('id_turno', bookingId)
+      .eq('uso_abono', true);
+
+    this.logger.log(`Cancel refund: found ${playersWithAbono?.length ?? 0} players with uso_abono=true for turno ${bookingId}`);
+    if (abonoQueryError) {
+      this.logger.error(`Error querying turno_jugadores for refund: ${JSON.stringify(abonoQueryError)}`);
+    }
+
+    if (playersWithAbono && playersWithAbono.length > 0) {
+      const playerIds = playersWithAbono.map((p) => p.id_persona).filter(Boolean);
+      if (playerIds.length > 0) {
+        const { data: socios } = await client
+          .from('socios')
+          .select('id, id_usuario, creditos_disponibles')
+          .in('id_usuario', playerIds);
+
+        for (const socio of socios || []) {
+          this.logger.log(`Refunding credit to socio ${socio.id_usuario}: ${socio.creditos_disponibles} -> ${socio.creditos_disponibles + 1}`);
+          await client
+            .from('socios')
+            .update({
+              creditos_disponibles: socio.creditos_disponibles + 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', socio.id);
+        }
+      }
     }
 
     const { error: updateError } = await client
@@ -335,14 +391,18 @@ export class BookingsService {
             : b.estado === 'cancelado'
               ? 'cancelled'
               : 'unknown',
+      costo: b.costo ? Number(b.costo) : 0,
       booking_players: (b.turno_jugadores || []).map((p: any) => ({
         id: p.id,
         user_id: p.id_persona,
         guest_name: p.nombre_invitado,
         tipo_persona: p.tipo_persona,
+        uso_abono: p.uso_abono || false,
+        monto_generado: p.monto_generado ? Number(p.monto_generado) : 0,
       })),
       courts: b.canchas,
-      solicitante_nombre: b.solicitante?.nombre || 'Desconocido',
+      solicitante_nombre: b.solicitante?.nombre || b.nombre_organizador || 'Desconocido',
+      court_name: b.canchas?.nombre || null,
     };
   }
 
@@ -365,68 +425,55 @@ export class BookingsService {
     return booking;
   }
 
-  private async getMonthlyPrices(fecha: string, accessToken: string) {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
-    const monthStart = fecha.slice(0, 7) + '-01';
-
-    // 1. Fetch global config for defaults
-    const { data: globalConfigs } = await client
+  private async getPrices(client: any) {
+    const { data: allConfigs, error: configError } = await client
       .from('config_sistema')
-      .select('clave, valor')
-      .in('clave', [
-        'precio_socio_sin_abono',
-        'precio_socio_abonado',
-        'precio_no_socio',
-      ]);
+      .select('clave, valor');
 
+    if (configError) {
+      this.logger.error(`Error fetching config_sistema: ${JSON.stringify(configError)}`);
+    }
+
+    // Normalize keys: lowercase, replace spaces with underscores
     const configMap: Record<string, number> = {};
-    globalConfigs?.forEach((c) => {
-      configMap[c.clave] = parseFloat(c.valor);
+    allConfigs?.forEach((c: any) => {
+      if (c.clave) {
+        const normalized = c.clave.toLowerCase().replace(/\s+/g, '_');
+        configMap[normalized] = parseFloat(c.valor);
+      }
     });
 
-    const dynamicDefaults = {
+    return {
       price_socio_libre: 0,
       price_socio_partidos:
         configMap['precio_socio_abonado'] ??
+        configMap['precio_socio_con_abono'] ??
         DEFAULT_PRICES.price_socio_partidos,
       price_socio_sin_abono:
         configMap['precio_socio_sin_abono'] ??
+        configMap['precio_socio'] ??
         DEFAULT_PRICES.price_socio_sin_abono,
       price_no_socio:
-        configMap['precio_no_socio'] ?? DEFAULT_PRICES.price_no_socio,
-    };
-
-    // 2. Try to fetch month-specific overrides
-    const { data: params } = await client
-      .from('parametros_mensuales')
-      .select('*')
-      .eq('mes_anio', monthStart)
-      .single();
-
-    if (!params) return dynamicDefaults;
-
-    return {
-      price_socio_libre:
-        params.precio_abono_libre ?? dynamicDefaults.price_socio_libre,
-      price_socio_partidos:
-        params.tarifa_socio ?? dynamicDefaults.price_socio_partidos,
-      price_socio_sin_abono:
-        params.tarifa_socio ?? dynamicDefaults.price_socio_sin_abono,
-      price_no_socio: params.tarifa_no_socio ?? dynamicDefaults.price_no_socio,
+        configMap['precio_no_socio'] ??
+        configMap['precio_invitado'] ??
+        DEFAULT_PRICES.price_no_socio,
     };
   }
 
-  private async generatePlayerDebts(
-    booking: any,
-    prices: any,
-    accessToken: string,
-  ) {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
-    const numPlayers = booking.turno_jugadores.length;
+  /**
+   * Calculate costs and consume abono credits at booking creation time.
+   * Updates turno_jugadores with uso_abono and monto_generado.
+   * Returns the total booking cost (only what needs to be paid, not abono-covered).
+   */
+  private async calculateAndApplyCosts(
+    players: any[],
+    client: any,
+  ): Promise<number> {
+    const prices = await this.getPrices(client);
+    const numPlayers = players.length;
 
-    // Batch-fetch all socios and usuarios for registered players in 2 queries
-    // instead of N+1 queries per player (was up to 12 queries for doubles)
-    const registeredPlayerIds = booking.turno_jugadores
+    // Batch-fetch socios and usuarios for registered players
+    const registeredPlayerIds = players
       .filter((p: any) => p.id_persona)
       .map((p: any) => p.id_persona);
 
@@ -439,32 +486,33 @@ export class BookingsService {
         .select('id, id_usuario, id_tipo_abono, creditos_disponibles')
         .in('id_usuario', registeredPlayerIds);
 
-      socios?.forEach((s) => socioMap.set(s.id_usuario, s));
+      socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
 
       const { data: usuarios } = await client
         .from('usuarios')
-        .select('id, rol, socios(id, tipo_abono, id_tipo_abono)')
+        .select('id, nombre, rol, socios(id, id_tipo_abono, tipo_abono:tipos_abono(nombre))')
         .in('id', registeredPlayerIds);
 
-      usuarios?.forEach((u) => usuarioMap.set(u.id, u));
+      usuarios?.forEach((u: any) => usuarioMap.set(u.id, u));
     }
 
-    for (const player of booking.turno_jugadores) {
-      let finalPriceToCharge = 0;
+    let totalCosto = 0;
 
-      // 1. Try to use abono if player is a socio
-      let usedAbono = false;
-      const socio = player.id_persona ? socioMap.get(player.id_persona) : null;
+    for (const player of players) {
+      let montoGenerado = 0;
+      let usoAbono = false;
 
+      const socio = player.id_persona
+        ? socioMap.get(player.id_persona)
+        : null;
+
+      // Try to consume abono credit
       if (socio) {
-        usedAbono = await this.abonosService.consumeCredit(
-          socio.id,
-          accessToken,
-        );
+        usoAbono = await this.abonosService.consumeCredit(socio.id);
       }
 
-      // 2. If not covered by abono, calculate proportional cost
-      if (!usedAbono) {
+      // If no abono credit used, calculate proportional cost
+      if (!usoAbono) {
         const usuario = player.id_persona
           ? usuarioMap.get(player.id_persona)
           : null;
@@ -473,19 +521,143 @@ export class BookingsService {
           usuario,
           prices,
         );
-        finalPriceToCharge = baseCost / numPlayers;
+        montoGenerado = baseCost / numPlayers;
       }
 
-      if (finalPriceToCharge > 0 && socio) {
-        await client.from('pagos').insert({
-          id_turno_jugador: player.id,
-          id_socio: socio.id,
-          monto: -finalPriceToCharge,
-          tipo: 'cargo',
-          observacion: `Reserva Cancha ${booking.id_cancha} - ${booking.fecha} ${booking.hora_inicio}`,
-        });
-      }
+      // Update turno_jugadores with cost info
+      await client
+        .from('turno_jugadores')
+        .update({ uso_abono: usoAbono, monto_generado: montoGenerado })
+        .eq('id', player.id);
+
+      totalCosto += montoGenerado;
     }
+
+    return totalCosto;
+  }
+
+  /**
+   * Generate payment (debt) entries from pre-calculated turno_jugadores costs.
+   * Called when admin confirms a booking.
+   */
+  private async generatePlayerDebtsFromPrecalculated(
+    booking: any,
+    client: any,
+  ) {
+    // Batch-fetch socios for registered players
+    const registeredPlayerIds = booking.turno_jugadores
+      .filter((p: any) => p.id_persona)
+      .map((p: any) => p.id_persona);
+
+    const socioMap = new Map<string, any>();
+
+    if (registeredPlayerIds.length > 0) {
+      const { data: socios } = await client
+        .from('socios')
+        .select('id, id_usuario')
+        .in('id_usuario', registeredPlayerIds);
+
+      socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
+    }
+
+    for (const player of booking.turno_jugadores) {
+      const monto = Number(player.monto_generado) || 0;
+      if (monto <= 0) continue;
+
+      const socio = player.id_persona
+        ? socioMap.get(player.id_persona)
+        : null;
+
+      if (!socio) continue;
+
+      await client.from('pagos').insert({
+        id_turno_jugador: player.id,
+        id_socio: socio.id,
+        monto: -monto,
+        tipo: 'cargo',
+        observacion: `Reserva Cancha ${booking.id_cancha} - ${booking.fecha} ${booking.hora_inicio}`,
+      });
+    }
+  }
+
+  async previewCost(
+    players: { user_id?: string; guest_name?: string }[],
+  ) {
+    const client = this.supabaseService.getClient();
+    const prices = await this.getPrices(client);
+    const numPlayers = players.length;
+
+    // Build player-like objects matching the format expected by calculatePlayerCostFromData
+    const registeredPlayerIds = players
+      .filter((p) => p.user_id)
+      .map((p) => p.user_id!);
+
+    const socioMap = new Map<string, any>();
+    const usuarioMap = new Map<string, any>();
+
+    if (registeredPlayerIds.length > 0) {
+      const { data: socios } = await client
+        .from('socios')
+        .select('id, id_usuario, id_tipo_abono, creditos_disponibles')
+        .in('id_usuario', registeredPlayerIds);
+
+      socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
+
+      const { data: usuarios, error: usuariosError } = await client
+        .from('usuarios')
+        .select('id, nombre, rol, socios(id, id_tipo_abono, tipo_abono:tipos_abono(nombre))')
+        .in('id', registeredPlayerIds);
+
+      if (usuariosError) {
+        this.logger.error(`Error fetching usuarios for preview: ${JSON.stringify(usuariosError)}`);
+      }
+
+      usuarios?.forEach((u: any) => usuarioMap.set(u.id, u));
+    }
+
+    let totalCosto = 0;
+    const breakdown: {
+      nombre: string;
+      tipo: string;
+      usa_abono: boolean;
+      monto: number;
+    }[] = [];
+
+    for (const p of players) {
+      const player = {
+        id_persona: p.user_id || null,
+      };
+      const socio = p.user_id ? socioMap.get(p.user_id) : null;
+      const usuario = p.user_id ? usuarioMap.get(p.user_id) : null;
+
+      let usaAbono = false;
+      let monto = 0;
+
+      // Check if socio has available abono credits
+      if (socio && socio.id_tipo_abono && socio.creditos_disponibles > 0) {
+        usaAbono = true;
+        monto = 0;
+      } else {
+        const baseCost = this.calculatePlayerCostFromData(
+          player,
+          usuario,
+          prices,
+        );
+        monto = baseCost / numPlayers;
+      }
+
+      const nombre = usuario?.nombre || p.guest_name || 'Invitado';
+      const tipo = usaAbono
+        ? 'abono'
+        : p.user_id && usuario?.rol === 'socio'
+          ? 'socio'
+          : 'invitado';
+
+      breakdown.push({ nombre, tipo, usa_abono: usaAbono, monto });
+      totalCosto += monto;
+    }
+
+    return { costo_total: totalCosto, jugadores: breakdown };
   }
 
   async findAllCourts(accessToken?: string) {
@@ -517,8 +689,11 @@ export class BookingsService {
       ? usuario.socios[0]
       : usuario.socios;
 
-    if (socio?.tipo_abono === 'Abono Libre') return prices.price_socio_libre;
-    if (socio?.tipo_abono === 'Abono x Partidos')
+    // tipo_abono is a relation to tipos_abono: { nombre: "Abono Libre" }
+    const tipoAbonoNombre = socio?.tipo_abono?.nombre;
+
+    if (tipoAbonoNombre === 'Abono Libre') return prices.price_socio_libre;
+    if (tipoAbonoNombre === 'Abono x Partidos')
       return prices.price_socio_partidos;
     if (usuario.rol === 'socio') return prices.price_socio_sin_abono;
 

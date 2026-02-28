@@ -16,7 +16,10 @@
       "Bash(npm install:*)",
       "Bash(npm run lint:*)",
       "Bash(curl:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

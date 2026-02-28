@@ -1,9 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { MatchType } from '../types/booking';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import type { Usuario } from '../types/user';
-import { Search, X, UserCheck, UserPlus } from 'lucide-react';
+import { Search, X, UserCheck, UserPlus, DollarSign } from 'lucide-react';
 
 interface Player {
   user_id?: string;
@@ -32,6 +32,41 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   const [organizerPhone, setOrganizerPhone] = useState('');
 
   const maxPlayers = matchType === MatchType.SINGLE ? 2 : 4;
+
+  // Cost preview
+  const [costPreview, setCostPreview] = useState<{
+    costo_total: number;
+    jugadores: { nombre: string; tipo: string; usa_abono: boolean; monto: number }[];
+  } | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const allPlayersFilled = players.length > 0 && players.every((p) => p.display_name.trim() !== '');
+
+  useEffect(() => {
+    if (!allPlayersFilled) {
+      setCostPreview(null);
+      return;
+    }
+
+    const fetchPreview = async () => {
+      setLoadingPreview(true);
+      try {
+        const result = await api.post<typeof costPreview>('/bookings/preview', {
+          players: players.map((p) => ({
+            user_id: p.user_id || undefined,
+            guest_name: p.guest_name || undefined,
+          })),
+        });
+        setCostPreview(result);
+      } catch {
+        setCostPreview(null);
+      } finally {
+        setLoadingPreview(false);
+      }
+    };
+
+    fetchPreview();
+  }, [players.map(p => `${p.user_id || ''}|${p.guest_name || ''}`).join(',')]);
+
 
   const handleSelectType = (type: MatchType) => {
     setMatchType(type);
@@ -62,7 +97,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
     );
   };
 
-  const allPlayersFilled = players.length > 0 && players.every((p) => p.display_name.trim() !== '');
   const organizerContactFilled = user || (organizerName.trim() !== '' && organizerEmail.trim() !== '' && organizerPhone.trim() !== '');
   const canSubmit = allPlayersFilled && organizerContactFilled;
 
@@ -181,10 +215,60 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
           ))}
         </div>
 
+        {/* Cost preview */}
+        {loadingPreview && (
+          <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Calculando costo...
+          </div>
+        )}
+        {costPreview && !loadingPreview && (
+          <div style={{
+            padding: '14px 16px',
+            marginBottom: '16px',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--brand-blue-pastel)',
+            border: '1px solid var(--border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <DollarSign size={18} style={{ color: 'var(--brand-blue)' }} />
+              <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--brand-blue)' }}>
+                Costo estimado del turno
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '10px' }}>
+              {costPreview.jugadores.map((j, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                  <span style={{ color: 'var(--text-main)' }}>
+                    {j.nombre}
+                    {j.usa_abono && (
+                      <span style={{ color: '#27AE60', fontWeight: '600', marginLeft: '6px', fontSize: '0.75rem' }}>
+                        (usa abono)
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontWeight: '600', color: j.monto > 0 ? 'var(--text-main)' : '#27AE60' }}>
+                    {j.monto > 0 ? `$${j.monto.toLocaleString('es-AR')}` : '$0'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              borderTop: '1px solid var(--border)', paddingTop: '8px',
+              fontWeight: '800', fontSize: '1rem',
+            }}>
+              <span>Total a pagar</span>
+              <span style={{ color: 'var(--brand-blue)' }}>
+                ${costPreview.costo_total.toLocaleString('es-AR')}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             className="btn-secondary"
-            onClick={() => { setMatchType(null); setPlayers([]); setEditingSlot(null); }}
+            onClick={() => { setMatchType(null); setPlayers([]); setEditingSlot(null); setCostPreview(null); }}
             style={{ flex: 1 }}
           >
             Volver

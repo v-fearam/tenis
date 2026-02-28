@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     Check, Clock, Users, Calendar,
-    X
+    X, RefreshCw, Search
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
@@ -14,9 +14,11 @@ import PaginationControls from '../components/PaginationControls';
 interface Booking {
     id: string;
     court_id: number;
+    court_name?: string;
     start_time: string;
     status: string;
     type: string;
+    costo: number;
     booking_players: any[];
     solicitante_nombre?: string;
 }
@@ -29,8 +31,13 @@ export default function AdminDashboard() {
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const [activeView, setActiveView] = useState<'pending' | 'active'>('pending');
 
+    const [refreshKey, setRefreshKey] = useState(0);
     const paginationPending = usePagination();
     const paginationActive = usePagination();
+
+    const [filterCourt, setFilterCourt] = useState('');
+    const [filterName, setFilterName] = useState('');
+    const [filterDay, setFilterDay] = useState('');
 
     const [dateFrom, setDateFrom] = useState(() => {
         const today = new Date();
@@ -42,13 +49,34 @@ export default function AdminDashboard() {
         return in30Days.toISOString().split('T')[0];
     });
 
-    const filteredPending = bookings;
-    const filteredActive = activeBookings;
+    const applyFilters = (list: Booking[]) => {
+        return list.filter(b => {
+            if (filterCourt && String(b.court_id) !== filterCourt) return false;
+            if (filterName) {
+                const q = filterName.toLowerCase();
+                const nameMatch = b.solicitante_nombre?.toLowerCase().includes(q);
+                const playerMatch = b.booking_players?.some((p: any) =>
+                    p.guest_name?.toLowerCase().includes(q)
+                );
+                if (!nameMatch && !playerMatch) return false;
+            }
+            if (filterDay) {
+                const bookingDate = b.start_time.split('T')[0];
+                if (bookingDate !== filterDay) return false;
+            }
+            return true;
+        });
+    };
 
-    const isActiveBooking = (booking: Booking) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return new Date(booking.start_time) >= today;
+    const filteredPending = applyFilters(bookings);
+    const filteredActive = applyFilters(activeBookings);
+
+    // Extract unique courts from both lists for the filter dropdown
+    const allCourts = [...new Set([...bookings, ...activeBookings].map(b => b.court_id))].sort((a, b) => a - b);
+    const courtNames = [...new Set([...bookings, ...activeBookings].filter(b => b.court_name).map(b => ({ id: b.court_id, name: b.court_name! })))];
+    const getCourtLabel = (courtId: number) => {
+        const found = courtNames.find(c => c.id === courtId);
+        return found ? found.name : `Cancha ${courtId}`;
     };
 
     useEffect(() => {
@@ -82,19 +110,13 @@ export default function AdminDashboard() {
         };
 
         fetchDashboardData();
-    }, [paginationPending.page, paginationActive.page, dateFrom, dateTo]);
+    }, [paginationPending.page, paginationActive.page, dateFrom, dateTo, refreshKey]);
 
     const handleConfirm = async (id: string) => {
         try {
             await api.patch(`/bookings/${id}/confirm`, {});
-            const updatedBookings = bookings.map(b => b.id === id ? { ...b, status: 'confirmed' } : b);
-            setBookings(updatedBookings);
-
-            const confirmed = updatedBookings.find(b => b.id === id);
-            if (confirmed && isActiveBooking(confirmed)) {
-                setActiveBookings(prev => prev.some(b => b.id === id) ? prev : [confirmed, ...prev]);
-            }
             setToast({ message: 'Reserva confirmada.', type: 'success' });
+            setRefreshKey(prev => prev + 1);
         } catch (err) {
             setToast({ message: 'Error al confirmar reserva', type: 'error' });
         }
@@ -103,9 +125,8 @@ export default function AdminDashboard() {
     const handleCancel = async (id: string) => {
         try {
             await api.patch(`/bookings/${id}/cancel`, {});
-            setBookings(prev => prev.filter(b => b.id !== id));
-            setActiveBookings(prev => prev.filter(b => b.id !== id));
-            setToast({ message: 'Reserva rechazada.', type: 'success' });
+            setToast({ message: 'Reserva cancelada.', type: 'success' });
+            setRefreshKey(prev => prev + 1);
         } catch (err) {
             setToast({ message: 'Error al cancelar reserva', type: 'error' });
         }
@@ -137,9 +158,19 @@ export default function AdminDashboard() {
                         <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '2px' }}>Gestión de Turnos</h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Reservas y aprobaciones</p>
                     </div>
-                    <button onClick={() => window.location.href = '/'} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem' }}>
-                        Vista Socios
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setRefreshKey(prev => prev + 1)}
+                            className="btn-secondary"
+                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="Refrescar"
+                        >
+                            <RefreshCw size={16} />
+                        </button>
+                        <button onClick={() => window.location.href = '/'} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem' }}>
+                            Vista Socios
+                        </button>
+                    </div>
                 </header>
 
                 {/* Grid of Stats */}
@@ -214,6 +245,62 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
+                {/* Filter Bar */}
+                <div style={{
+                    display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center'
+                }}>
+                    <div style={{ position: 'relative', flex: '1', minWidth: '140px', maxWidth: '220px' }}>
+                        <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="text"
+                            placeholder="Buscar nombre..."
+                            value={filterName}
+                            onChange={e => setFilterName(e.target.value)}
+                            style={{
+                                width: '100%', padding: '7px 10px 7px 30px', borderRadius: '10px',
+                                border: '1px solid var(--border)', fontSize: '0.85rem',
+                                background: 'rgba(255,255,255,0.6)', outline: 'none'
+                            }}
+                        />
+                    </div>
+                    <select
+                        value={filterCourt}
+                        onChange={e => setFilterCourt(e.target.value)}
+                        style={{
+                            padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--border)',
+                            fontSize: '0.85rem', background: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                            color: filterCourt ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                    >
+                        <option value="">Todas las canchas</option>
+                        {allCourts.map(c => (
+                            <option key={c} value={String(c)}>{getCourtLabel(c)}</option>
+                        ))}
+                    </select>
+                    <input
+                        type="date"
+                        value={filterDay}
+                        onChange={e => setFilterDay(e.target.value)}
+                        style={{
+                            padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--border)',
+                            fontSize: '0.85rem', background: 'rgba(255,255,255,0.6)',
+                            color: filterDay ? 'var(--text-main)' : 'var(--text-muted)'
+                        }}
+                    />
+                    {(filterName || filterCourt || filterDay) && (
+                        <button
+                            onClick={() => { setFilterName(''); setFilterCourt(''); setFilterDay(''); }}
+                            style={{
+                                padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--border)',
+                                fontSize: '0.8rem', background: 'rgba(231,76,60,0.08)', color: '#E74C3C',
+                                cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px'
+                            }}
+                        >
+                            <X size={13} /> Limpiar
+                        </button>
+                    )}
+                </div>
+
                 <section>
                     <div className="card glass" style={{ padding: '22px', minHeight: '480px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -285,7 +372,16 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {booking.costo > 0 && (
+                                            <span style={{
+                                                fontWeight: '800', fontSize: '0.9rem', color: '#27AE60',
+                                                background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                ${booking.costo.toLocaleString('es-AR')}
+                                            </span>
+                                        )}
                                         <button
                                             onClick={() => handleCancel(booking.id)}
                                             className="btn-secondary"
@@ -335,7 +431,16 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        {booking.costo > 0 && (
+                                            <span style={{
+                                                fontWeight: '800', fontSize: '0.9rem', color: '#27AE60',
+                                                background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                ${booking.costo.toLocaleString('es-AR')}
+                                            </span>
+                                        )}
                                         <button
                                             onClick={() => handleCancel(booking.id)}
                                             className="btn-secondary"

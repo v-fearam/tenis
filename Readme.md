@@ -27,6 +27,32 @@ A modern management system for **Club Belgrano** (General Belgrano, Buenos Aires
 ### Membership Tiers
 - Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio — each with different pricing.
 
+### Booking Cost Calculation (Business Logic)
+
+The cost of a booking is calculated **at creation time** and stored in the `turnos.costo` column. The pricing logic works as follows:
+
+**Pricing source:** All prices are read from the `config_sistema` table:
+- `precio_no_socio` — rate for non-members and guests
+- `precio_socio_sin_abono` — rate for members without a subscription
+- `precio_socio_abonado` — rate for members with "Abono x Partidos" (if they run out of credits)
+
+**Per-player cost:** Each player pays a proportional share: `base_tariff / total_players_in_match`
+
+**Player classification and tariffs:**
+| Player Type | Tariff | Notes |
+|-------------|--------|-------|
+| Socio con Abono Libre | $0 | Unlimited free play |
+| Socio con Abono x Partidos (with credits) | $0 | 1 credit consumed immediately |
+| Socio sin abono | `precio_socio_sin_abono / N` | Proportional share |
+| No socio / Invitado | `precio_no_socio / N` | Proportional share |
+
+**Lifecycle:**
+1. **Creation** → Cost calculated, abono credits consumed, stored in `turno_jugadores.monto_generado` and `turno_jugadores.uso_abono`
+2. **Confirmation** (admin) → `pagos` (debt records) generated from pre-calculated `monto_generado` values
+3. **Cancellation** (admin) → Abono credits refunded to players who had `uso_abono = true`
+
+**Cost Preview:** Users can preview the estimated cost before submitting via `POST /api/bookings/preview`.
+
 ## Latest Updates (Feb 2026)
 
 ### Security & Bot Protection
@@ -140,10 +166,11 @@ tenis/
 | DELETE | `/api/users/:id` | Admin | Deactivate user |
 | GET | `/api/canchas` | Public | List courts and schedules |
 | GET | `/api/bloqueos?fecha=` | Public | List blocks for a specific date |
-| POST | `/api/bookings` | JWT | Create booking |
+| POST | `/api/bookings` | JWT | Create booking (cost calculated, credits consumed) |
+| POST | `/api/bookings/preview` | JWT | Preview booking cost estimate |
 | GET | `/api/bookings` | JWT | List bookings |
-| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm + generate debt |
-| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking |
+| PATCH | `/api/bookings/:id/confirm` | Admin | Confirm + generate debt from pre-calculated costs |
+| PATCH | `/api/bookings/:id/cancel` | Admin | Cancel booking + refund abono credits |
 | GET | `/api/config` | Public | List system parameters |
 
 ## Database Schema
@@ -151,14 +178,13 @@ tenis/
 Key tables in `public` schema:
 - **`usuarios`**: User profiles (nombre, dni, telefono, email, rol, estado)
 - **`socios`**: Membership details linked to `usuarios`
-- **`turnos`**: Court reservations (id_cancha, fecha, hora_inicio, hora_fin, tipo_partido, estado)
-- **`turno_jugadores`**: Players per booking (id_turno, id_persona, tipo_persona, nombre_invitado)
+- **`turnos`**: Court reservations (id_cancha, fecha, hora_inicio, hora_fin, tipo_partido, estado, costo)
+- **`turno_jugadores`**: Players per booking (id_turno, id_persona, tipo_persona, nombre_invitado, uso_abono, monto_generado)
 - **`canchas`**: 5 clay courts (nombre, superficie, activa, hora_apertura, hora_cierre)
-- **`parametros_mensuales`**: Pricing and timing configuration
 - **`bloqueos`**: Court maintenance/event block periods
 - **`abonos`**: Monthly subscription credits
 - **`pagos`**: Financial ledger (cargo/pago system)
-- **`config_sistema`**: Global string-key configurations
+- **`config_sistema`**: Global configuration (pricing, schedules, etc.)
 
 ## Documentation
 
