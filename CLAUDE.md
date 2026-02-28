@@ -142,7 +142,6 @@ tenis/
      - Prices fetched from `config_sistema` table (keys: `precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`)
      - Each player's cost = `base_tariff / total_players` (proportional split)
      - Player tariff depends on membership tier:
-       - **Abono Libre**: $0 (free, unlimited play)
        - **Abono x Partidos**: uses 1 credit → $0 (if credits available), otherwise socio rate
        - **Socio sin abono**: `precio_socio_sin_abono` rate
        - **No socio / Invitado**: `precio_no_socio` rate
