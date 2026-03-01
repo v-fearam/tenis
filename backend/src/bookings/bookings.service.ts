@@ -356,6 +356,59 @@ export class BookingsService {
     return { id: bookingId, status: 'cancelado' };
   }
 
+  /**
+   * Lightweight query for calendar: returns only fields needed to render slots.
+   * Single query, no count, no joins to turno_jugadores/usuarios.
+   */
+  async findByDateForCalendar(fecha: string, accessToken?: string) {
+    const client = this.supabaseService.getOptionalClient(accessToken);
+    const { data, error } = await client
+      .from('turnos')
+      .select('id, id_cancha, fecha, hora_inicio, hora_fin, estado')
+      .eq('fecha', fecha)
+      .neq('estado', 'cancelado');
+
+    if (error) {
+      this.logger.error('Error fetching bookings for calendar', error);
+      throw error;
+    }
+
+    return (data || []).map((b: any) => {
+      let startTime = '';
+      let endTime = '';
+      try {
+        const timePart =
+          b.hora_inicio.split(':').length === 2
+            ? `${b.hora_inicio}:00`
+            : b.hora_inicio;
+        startTime = new Date(`${b.fecha}T${timePart}`).toISOString();
+
+        if (b.hora_fin) {
+          const endPart =
+            b.hora_fin.split(':').length === 2
+              ? `${b.hora_fin}:00`
+              : b.hora_fin;
+          endTime = new Date(`${b.fecha}T${endPart}`).toISOString();
+        }
+      } catch {
+        startTime = new Date().toISOString();
+      }
+
+      return {
+        id: b.id,
+        court_id: b.id_cancha,
+        start_time: startTime,
+        end_time: endTime || undefined,
+        status:
+          b.estado === 'pendiente'
+            ? 'pending'
+            : b.estado === 'confirmado'
+              ? 'confirmed'
+              : 'unknown',
+      };
+    });
+  }
+
   private mapToFrontendStructure(b: any) {
     // Construct start_time from fecha and hora_inicio
     // b.fecha is 'YYYY-MM-DD', b.hora_inicio is 'HH:MM:SS' or 'HH:MM'

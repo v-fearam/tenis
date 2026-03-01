@@ -64,6 +64,14 @@ export class BookingsController {
     );
   }
 
+  @Get('calendar')
+  findForCalendar(@Query('fecha') fecha: string, @Req() req: any) {
+    return this.bookingsService.findByDateForCalendar(
+      fecha,
+      req?.accessToken,
+    );
+  }
+
   @Get('courts')
   findCourts(@Req() req: any) {
     return this.bookingsService.findAllCourts(req?.accessToken);

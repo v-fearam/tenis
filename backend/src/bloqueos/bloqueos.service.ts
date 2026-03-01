@@ -126,7 +126,7 @@ export class BloqueosService {
     const client = this.supabaseService.getOptionalClient(accessToken);
     const { data, error } = await client
       .from('bloqueos')
-      .select('*')
+      .select('id, id_cancha, fecha, hora_inicio, hora_fin, tipo, descripcion')
       .eq('fecha', fecha);
 
     if (error) {

@@ -118,27 +118,24 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                 // Use local date parts to avoid UTC timezone shift
                 const selectedDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-                // Fetch bookings for the selected date only
-                const bookingsResponse = await api.get<{ data: any[] }>(
-                    `/bookings?pageSize=200&fecha_desde=${selectedDateStr}&fecha_hasta=${selectedDateStr}`
-                );
-                const bookingsData = bookingsResponse.data || [];
+                const turnDurationMs = config.blockDuration * config.blocksPerTurn * 60 * 1000;
 
-                const filteredBookings = bookingsData
-                    .filter(b => b.status !== 'cancelled')
-                    .map(b => ({
-                        id: b.id,
-                        court_id: b.court_id,
-                        start_time: b.start_time,
-                        end_time: b.end_time || new Date(new Date(b.start_time).getTime() + 90 * 60000).toISOString(),
-                        status: b.status
-                    }));
+                // Fetch bookings and bloqueos in parallel using lightweight calendar endpoints
+                const [calendarBookings, bloqueosData] = await Promise.all([
+                    api.get<any[]>(`/bookings/calendar?fecha=${selectedDateStr}`),
+                    api.get<any[]>(`/bloqueos?fecha=${selectedDateStr}`),
+                ]);
+
+                const filteredBookings = (calendarBookings || []).map(b => ({
+                    id: b.id,
+                    court_id: b.court_id,
+                    start_time: b.start_time,
+                    end_time: b.end_time || new Date(new Date(b.start_time).getTime() + turnDurationMs).toISOString(),
+                    status: b.status
+                }));
+
                 setBookings(filteredBookings);
-
-                // Fetch bloqueos for the selected date (this endpoint still returns array when fecha param is provided)
-                const bloqueosData = await api.get<any[]>(`/bloqueos?fecha=${selectedDateStr}`);
                 setBloqueos(bloqueosData);
-
             } catch (err) {
                 console.error('Error fetching calendar data:', err);
             }
@@ -147,7 +144,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
         // Reset local selection when refreshing or changing date
         setSelectedSlot(null);
         setSelectedCourt(null);
-    }, [selectedDate, refreshKey]);
+    }, [selectedDate, refreshKey, config.blockDuration, config.blocksPerTurn]);
 
     const isSlotSelected = (courtId: number, time: string) => {
         if (!selectedSlot || selectedCourt !== courtId) return false;
