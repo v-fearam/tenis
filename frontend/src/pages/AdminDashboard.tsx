@@ -39,6 +39,7 @@ interface UnpaidTurno {
     turno_id: string;
     fecha: string;
     hora_inicio: string;
+    court_id: number;
     court_name: string;
     players: UnpaidPlayer[];
     total_pendiente: number;
@@ -190,10 +191,10 @@ export default function AdminDashboard() {
         }
     };
 
-    const handlePayPlayer = async (turnoJugadorId: string) => {
+    const handlePayPlayer = async (turnoJugadorId: string, saldoPendiente: number) => {
         const montoStr = paymentAmounts[turnoJugadorId];
-        const monto = parseFloat(montoStr);
-        if (!monto || monto <= 0) {
+        const monto = montoStr !== undefined ? parseFloat(montoStr) : saldoPendiente;
+        if (!monto || monto <= 0 || isNaN(monto)) {
             setToast({ message: 'Ingresá un monto válido', type: 'warning' });
             return;
         }
@@ -741,8 +742,8 @@ export default function AdminDashboard() {
                                                     background: 'var(--brand-blue)', color: 'white',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
                                                 }}>
-                                                    <span style={{ fontSize: '0.5rem', fontWeight: '900', opacity: 0.8 }}>CANCHA</span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '900' }}>{turno.court_name}</span>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
+                                                    <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{turno.court_id}</span>
                                                 </div>
                                                 <div>
                                                     <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
@@ -845,7 +846,7 @@ export default function AdminDashboard() {
                                                                     />
                                                                 </div>
                                                                 <button
-                                                                    onClick={() => handlePayPlayer(player.turno_jugador_id)}
+                                                                    onClick={() => handlePayPlayer(player.turno_jugador_id, player.saldo_pendiente)}
                                                                     disabled={payingPlayer === player.turno_jugador_id}
                                                                     style={{
                                                                         padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem',

@@ -138,6 +138,7 @@ export class PagosService {
         turno_id: t.id,
         fecha: t.fecha,
         hora_inicio: t.hora_inicio,
+        court_id: t.id_cancha,
         court_name: t.canchas?.nombre || `Cancha ${t.id_cancha}`,
         players,
         total_pendiente: totalPendiente,
