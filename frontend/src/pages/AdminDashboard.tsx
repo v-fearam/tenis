@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
     Check, Clock, Users, Calendar,
     X, RefreshCw, Search, Trash2, AlertTriangle,
@@ -76,6 +77,19 @@ export default function AdminDashboard() {
     const [payingPlayer, setPayingPlayer] = useState<string | null>(null);
     const [totalDebt, setTotalDebt] = useState(0);
     const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+
+    // Export modal state
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportFrom, setExportFrom] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    });
+    const [exportTo, setExportTo] = useState(() => {
+        const in30Days = new Date();
+        in30Days.setDate(in30Days.getDate() + 30);
+        return in30Days.toISOString().split('T')[0];
+    });
+    const [exporting, setExporting] = useState(false);
 
     // Confirmation modal state
     const [confirmModal, setConfirmModal] = useState<{
@@ -292,6 +306,33 @@ export default function AdminDashboard() {
         }
     };
 
+    const handleExport = async () => {
+        setExporting(true);
+        try {
+            const response = await api.get<PaginatedResponse<Booking>>(
+                `/bookings?status=confirmado&page=1&pageSize=9999&fecha_desde=${exportFrom}&fecha_hasta=${exportTo}`
+            );
+            const data = response.data.map(b => ({
+                Fecha: formatDateToDDMMYYYY(b.start_time),
+                Hora: new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                Cancha: b.court_name || `Cancha ${b.court_id}`,
+                Solicitante: b.solicitante_nombre || '',
+                Estado: b.status,
+                Costo: b.costo,
+            }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Turnos');
+            XLSX.writeFile(wb, `turnos_${exportFrom}_${exportTo}.xlsx`);
+            setToast({ message: `Exportados ${data.length} turnos a Excel`, type: 'success' });
+            setShowExportModal(false);
+        } catch (err) {
+            setToast({ message: 'Error al exportar turnos', type: 'error' });
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const formatFecha = (fecha: string) => {
         const parts = fecha.split('-');
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
@@ -475,9 +516,52 @@ export default function AdminDashboard() {
                         >
                             <RefreshCw size={16} />
                         </button>
+                        <button onClick={() => setShowExportModal(true)} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', background: '#27AE60', color: 'white', fontWeight: 700 }}>
+                            Exportar
+                        </button>
                         <button onClick={() => window.location.href = '/'} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem' }}>
                             Vista Socios
                         </button>
+                        {/* Export Modal */}
+                        {showExportModal && (
+                            <div style={{
+                                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                            }} onClick={() => setShowExportModal(false)}>
+                                <div className="card glass animate-slide-up" style={{ maxWidth: '400px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+                                    <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#27AE60', marginBottom: '16px' }}>
+                                        Exportar Turnos a Excel
+                                    </h2>
+                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '18px', alignItems: 'center' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde</label>
+                                            <DateInputDDMMYYYY value={exportFrom} onChange={setExportFrom} compact />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta</label>
+                                            <DateInputDDMMYYYY value={exportTo} onChange={setExportTo} compact />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                        <button
+                                            onClick={() => setShowExportModal(false)}
+                                            className="btn-secondary"
+                                            style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
+                                            disabled={exporting}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleExport}
+                                            style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700', background: '#27AE60', color: 'white', border: 'none', cursor: 'pointer', opacity: exporting ? 0.7 : 1 }}
+                                            disabled={exporting}
+                                        >
+                                            {exporting ? 'Exportando...' : 'Exportar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </header>
 
@@ -688,7 +772,7 @@ export default function AdminDashboard() {
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                            {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                                {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
                                             </div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
                                                 Solicita: {booking.solicitante_nombre}
