@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     Check, Clock, Users, Calendar,
-    X, RefreshCw, Search
+    X, RefreshCw, Search, Trash2, AlertTriangle
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
@@ -38,6 +38,13 @@ export default function AdminDashboard() {
     const [filterCourt, setFilterCourt] = useState('');
     const [filterName, setFilterName] = useState('');
     const [filterDay, setFilterDay] = useState('');
+
+    // Purge state
+    const [showPurgeModal, setShowPurgeModal] = useState(false);
+    const [purgeMonth, setPurgeMonth] = useState(new Date().getMonth()); // 0-indexed for display, send +1
+    const [purgeYear, setPurgeYear] = useState(new Date().getFullYear() - 1);
+    const [purgeConfirmText, setPurgeConfirmText] = useState('');
+    const [purgingTurnos, setPurgingTurnos] = useState(false);
 
     const [dateFrom, setDateFrom] = useState(() => {
         const today = new Date();
@@ -132,6 +139,31 @@ export default function AdminDashboard() {
         }
     };
 
+    const handlePurgeTurnos = async () => {
+        setPurgingTurnos(true);
+        try {
+            const mes = purgeMonth + 1; // convert from 0-indexed
+            const result = await api.delete<{ turnos_eliminados: number; pagos_eliminados: number }>(
+                `/bookings/purge?mes=${mes}&anio=${purgeYear}`
+            );
+            setToast({
+                message: `Depuración completada: ${result.turnos_eliminados} turnos y ${result.pagos_eliminados} pagos eliminados`,
+                type: 'success'
+            });
+            setShowPurgeModal(false);
+            setPurgeConfirmText('');
+            setRefreshKey(prev => prev + 1);
+        } catch (err) {
+            setToast({ message: 'Error al depurar turnos', type: 'error' });
+        } finally {
+            setPurgingTurnos(false);
+        }
+    };
+
+    const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const currentYear = new Date().getFullYear();
+    const purgeYears = Array.from({ length: currentYear - 2023 }, (_, i) => 2024 + i);
+
     if (loading) return (
         <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
             <div className="card glass" style={{ padding: '40px', textAlign: 'center' }}>
@@ -151,6 +183,93 @@ export default function AdminDashboard() {
                 />
             )}
 
+            {/* Purge Modal */}
+            {showPurgeModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                }} onClick={() => setShowPurgeModal(false)}>
+                    <div className="card glass animate-slide-up" style={{ maxWidth: '460px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+                        <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#E74C3C', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertTriangle size={22} /> Depurar Turnos
+                        </h2>
+
+                        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Mes</label>
+                                <select
+                                    value={purgeMonth}
+                                    onChange={e => setPurgeMonth(parseInt(e.target.value))}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.9rem' }}
+                                >
+                                    {MONTH_NAMES.map((name, i) => (
+                                        <option key={i} value={i}>{name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>Año</label>
+                                <select
+                                    value={purgeYear}
+                                    onChange={e => setPurgeYear(parseInt(e.target.value))}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.9rem' }}
+                                >
+                                    {purgeYears.map(y => (
+                                        <option key={y} value={y}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            background: 'rgba(243, 156, 18, 0.1)', border: '1px solid rgba(243, 156, 18, 0.3)',
+                            borderRadius: '10px', padding: '14px', marginBottom: '16px'
+                        }}>
+                            <p style={{ fontSize: '0.85rem', color: '#D68910', fontWeight: '600', lineHeight: 1.5 }}>
+                                <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                Esta acción eliminará <strong>todos los turnos, jugadores y pagos</strong> de {MONTH_NAMES[purgeMonth]} {purgeYear}. Esta operación es irreversible.
+                            </p>
+                        </div>
+
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+                                Escribí DEPURAR para confirmar
+                            </label>
+                            <input
+                                type="text"
+                                value={purgeConfirmText}
+                                onChange={e => setPurgeConfirmText(e.target.value)}
+                                placeholder="DEPURAR"
+                                style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.9rem' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => { setShowPurgeModal(false); setPurgeConfirmText(''); }}
+                                className="btn-secondary"
+                                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handlePurgeTurnos}
+                                disabled={purgeConfirmText !== 'DEPURAR' || purgingTurnos}
+                                style={{
+                                    padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700',
+                                    background: purgeConfirmText === 'DEPURAR' ? '#E74C3C' : '#ccc',
+                                    color: 'white', border: 'none', cursor: purgeConfirmText === 'DEPURAR' ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                <Trash2 size={16} />
+                                {purgingTurnos ? 'Depurando...' : 'Ejecutar Depuración'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MAIN CONTENT AREA */}
             <main style={{ padding: '20px' }}>
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -159,6 +278,14 @@ export default function AdminDashboard() {
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Reservas y aprobaciones</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                            onClick={() => setShowPurgeModal(true)}
+                            className="btn-secondary"
+                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
+                            title="Depurar turnos"
+                        >
+                            <Trash2 size={16} />
+                        </button>
                         <button
                             onClick={() => setRefreshKey(prev => prev + 1)}
                             className="btn-secondary"

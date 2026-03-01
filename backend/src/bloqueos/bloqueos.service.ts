@@ -148,4 +148,28 @@ export class BloqueosService {
     }
     return { success: true };
   }
+
+  async purgeByMonth(mes: number, anio: number, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+    const fechaDesde = `${anio}-${String(mes).padStart(2, '0')}-01`;
+    const lastDay = new Date(anio, mes, 0).getDate();
+    const fechaHasta = `${anio}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    this.logger.log(`Purging bloqueos from ${fechaDesde} to ${fechaHasta}`);
+
+    const { count, error } = await client
+      .from('bloqueos')
+      .delete({ count: 'exact' })
+      .gte('fecha', fechaDesde)
+      .lte('fecha', fechaHasta);
+
+    if (error) {
+      this.logger.error('Error purging bloqueos', error);
+      throw new InternalServerErrorException('Error al depurar bloqueos');
+    }
+
+    this.logger.log(`Purge complete: ${count} bloqueos deleted`);
+    return { bloqueos_eliminados: count || 0 };
+  }
 }

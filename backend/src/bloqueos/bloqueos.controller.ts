@@ -44,6 +44,17 @@ export class BloqueosController {
     );
   }
 
+  @Delete('purge')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  purge(@Query('mes') mes: string, @Query('anio') anio: string, @Req() req: any) {
+    return this.bloqueosService.purgeByMonth(
+      parseInt(mes, 10),
+      parseInt(anio, 10),
+      req.accessToken,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')

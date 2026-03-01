@@ -251,32 +251,53 @@ export class UsersService {
 
   async getDashboardData(userId: string, accessToken: string) {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
-    const now = new Date().toISOString();
 
-    // 1. Fetch next match
-    const { data: turnos, error: turnosError } = await client
-      .from('turnos')
-      .select(
-        `
-        id,
-        fecha,
-        hora_inicio,
-        type:tipo_partido,
-        canchas:id_cancha (nombre),
-        turno_jugadores!inner (id_persona)
-      `,
-      )
-      .eq('turno_jugadores.id_persona', userId)
-      .eq('estado', 'confirmado')
-      .or(
-        `fecha.gt.${now.split('T')[0]},and(fecha.eq.${now.split('T')[0]},hora_inicio.gte.${new Date().toTimeString().split(' ')[0]})`,
-      )
-      .order('fecha', { ascending: true })
-      .order('hora_inicio', { ascending: true })
-      .limit(1);
+    // Use Argentina timezone for date/time comparisons
+    const timeZone = 'America/Argentina/Buenos_Aires';
+    const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const nowDate = dateFormatter.format(new Date());
+    const nowTime = timeFormatter.format(new Date());
 
-    if (turnosError) throw turnosError;
-    const nextMatch = turnos?.[0] || null;
+    // 1. Find turno IDs where this user is a player
+    const { data: jugadas, error: jugadasError } = await client
+      .from('turno_jugadores')
+      .select('id_turno')
+      .eq('id_persona', userId);
+
+    if (jugadasError) throw jugadasError;
+
+    const turnoIds = (jugadas || []).map((j: any) => j.id_turno);
+    let nextMatch = null;
+
+    if (turnoIds.length > 0) {
+      // 2. Fetch next confirmed match from those turnos
+      const { data: turnos, error: turnosError } = await client
+        .from('turnos')
+        .select('id, fecha, hora_inicio, type:tipo_partido, canchas:id_cancha (nombre)')
+        .in('id', turnoIds)
+        .eq('estado', 'confirmado')
+        .or(
+          `fecha.gt.${nowDate},and(fecha.eq.${nowDate},hora_inicio.gte.${nowTime})`,
+        )
+        .order('fecha', { ascending: true })
+        .order('hora_inicio', { ascending: true })
+        .limit(1);
+
+      if (turnosError) throw turnosError;
+      nextMatch = turnos?.[0] || null;
+    }
 
     // 2. Fetch membership (socio + tipo_abono)
     const { data: socio } = await client

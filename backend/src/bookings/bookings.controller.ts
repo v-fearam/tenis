@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Patch,
@@ -87,5 +88,16 @@ export class BookingsController {
   @Roles('admin')
   cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.bookingsService.cancel(id, req.accessToken);
+  }
+
+  @Delete('purge')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  purge(@Query('mes') mes: string, @Query('anio') anio: string, @Req() req: any) {
+    return this.bookingsService.purgeByMonth(
+      parseInt(mes, 10),
+      parseInt(anio, 10),
+      req.accessToken,
+    );
   }
 }

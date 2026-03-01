@@ -314,44 +314,31 @@ export default function AdminAbonos() {
         )}
       </div>
 
-      {/* === Bar Chart: Abonos por Tipo === */}
+      {/* === Compact Stats: Abonos por Tipo === */}
       {abonoStats && (abonoStats.por_tipo.length > 0 || abonoStats.sin_abono > 0) && (() => {
         const allBars = [
           ...abonoStats.por_tipo.map(t => ({ label: t.nombre, count: t.count, color: t.color })),
           ...(abonoStats.sin_abono > 0 ? [{ label: 'Sin abono', count: abonoStats.sin_abono, color: '#BDC3C7' }] : []),
         ];
-        const maxCount = Math.max(...allBars.map(b => b.count), 1);
+        const total = allBars.reduce((s, b) => s + b.count, 0);
         return (
-          <div className="card" style={{ padding: '16px 20px', marginBottom: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <BarChart3 size={16} style={{ color: 'var(--brand-blue)' }} />
-              <h2 style={{ fontSize: '0.9rem', fontWeight: '700', margin: 0 }}>Abonos Asignados por Tipo</h2>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+              <BarChart3 size={13} />
+              <span>{total} socios</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {allBars.map((bar) => (
-                <div key={bar.label} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '100px', fontSize: '0.8rem', fontWeight: '600', textAlign: 'right', flexShrink: 0, color: 'var(--text-main)' }}>
-                    {bar.label}
-                  </div>
-                  <div style={{ flex: 1, height: '28px', background: 'var(--bg-main, #F8F9FA)', borderRadius: '6px', overflow: 'hidden', position: 'relative' }}>
-                    <div style={{
-                      height: '100%',
-                      width: `${(bar.count / maxCount) * 100}%`,
-                      background: bar.color,
-                      borderRadius: '6px',
-                      transition: 'width 0.6s ease',
-                      minWidth: bar.count > 0 ? '24px' : '0',
-                    }} />
-                    <span style={{
-                      position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                      fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-main)',
-                    }}>
-                      {bar.count}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {allBars.map((bar) => (
+              <div key={bar.label} style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '4px 10px', borderRadius: '8px',
+                background: bar.color + '18', border: `1px solid ${bar.color}33`,
+                fontSize: '0.78rem', fontWeight: '600',
+              }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: bar.color }} />
+                <span style={{ color: 'var(--text-main)' }}>{bar.label}</span>
+                <span style={{ fontWeight: '800', color: bar.color }}>{bar.count}</span>
+              </div>
+            ))}
           </div>
         );
       })()}

@@ -676,6 +676,65 @@ export class BookingsService {
     }));
   }
 
+  async purgeByMonth(mes: number, anio: number, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+    const fechaDesde = `${anio}-${String(mes).padStart(2, '0')}-01`;
+    const lastDay = new Date(anio, mes, 0).getDate();
+    const fechaHasta = `${anio}-${String(mes).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    this.logger.log(`Purging turnos from ${fechaDesde} to ${fechaHasta}`);
+
+    // 1. Find all turno_jugadores IDs for turnos in the date range
+    const { data: turnos } = await client
+      .from('turnos')
+      .select('id')
+      .gte('fecha', fechaDesde)
+      .lte('fecha', fechaHasta);
+
+    const turnoIds = (turnos || []).map((t: any) => t.id);
+    let pagosEliminados = 0;
+
+    if (turnoIds.length > 0) {
+      // 2. Find turno_jugadores for those turnos
+      const { data: jugadores } = await client
+        .from('turno_jugadores')
+        .select('id')
+        .in('id_turno', turnoIds);
+
+      const jugadorIds = (jugadores || []).map((j: any) => j.id);
+
+      // 3. Delete pagos linked to those turno_jugadores
+      if (jugadorIds.length > 0) {
+        const { count } = await client
+          .from('pagos')
+          .delete({ count: 'exact' })
+          .in('id_turno_jugador', jugadorIds);
+        pagosEliminados = count || 0;
+      }
+
+      // 4. Delete turnos (cascade deletes turno_jugadores)
+      const { error: deleteError } = await client
+        .from('turnos')
+        .delete()
+        .in('id', turnoIds);
+
+      if (deleteError) {
+        this.logger.error('Error purging turnos', deleteError);
+        throw new InternalServerErrorException('Error al depurar turnos');
+      }
+    }
+
+    this.logger.log(
+      `Purge complete: ${turnoIds.length} turnos, ${pagosEliminados} pagos deleted`,
+    );
+
+    return {
+      turnos_eliminados: turnoIds.length,
+      pagos_eliminados: pagosEliminados,
+    };
+  }
+
   private calculatePlayerCostFromData(
     player: any,
     usuario: any | null,

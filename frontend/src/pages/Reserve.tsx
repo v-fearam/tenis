@@ -214,9 +214,15 @@ export default function Reserve() {
                     {dashboard.nextMatch && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
                             <CalendarIcon size={15} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--brand-blue)' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>Próximo partido:</span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--brand-blue)' }}>
                                 {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
                             </span>
+                            {dashboard.nextMatch.canchas?.nombre && (
+                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--brand-blue)', opacity: 0.7 }}>
+                                    • {dashboard.nextMatch.canchas.nombre}
+                                </span>
+                            )}
                         </div>
                     )}
 

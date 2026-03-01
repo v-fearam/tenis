@@ -117,13 +117,14 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
             try {
                 const selectedDateStr = selectedDate.toISOString().split('T')[0];
 
-                // Fetch all bookings with large pageSize to get all results
-                // The response is now paginated: { data: [], meta: {} }
-                const bookingsResponse = await api.get<{ data: any[] }>('/bookings?pageSize=1000');
+                // Fetch bookings for the selected date only
+                const bookingsResponse = await api.get<{ data: any[] }>(
+                    `/bookings?pageSize=200&fecha_desde=${selectedDateStr}&fecha_hasta=${selectedDateStr}`
+                );
                 const bookingsData = bookingsResponse.data || [];
 
                 const filteredBookings = bookingsData
-                    .filter(b => b.start_time.split('T')[0] === selectedDateStr && b.status !== 'cancelled')
+                    .filter(b => b.status !== 'cancelled')
                     .map(b => ({
                         id: b.id,
                         court_id: b.court_id,
