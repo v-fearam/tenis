@@ -10,6 +10,7 @@ import { ConfigSistemaModule } from './config/config.module';
 import { BloqueosModule } from './bloqueos/bloqueos.module';
 import { CanchasModule } from './canchas/canchas.module';
 import { AbonosModule } from './abonos/abonos.module';
+import { PagosModule } from './pagos/pagos.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AbonosModule } from './abonos/abonos.module';
     BloqueosModule,
     CanchasModule,
     AbonosModule,
+    PagosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
