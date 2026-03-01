@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
-import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import { formatDateToDDMMYYYY, formatTimeToAR } from '../lib/dateUtils';
 import { usePagination } from '../hooks/usePagination';
 import PaginationControls from '../components/PaginationControls';
 
@@ -170,7 +170,7 @@ export default function AdminFinance() {
                                                     {formatDateToDDMMYYYY(booking.start_time)}
                                                 </span>
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                    {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                                    {formatTimeToAR(booking.start_time)} hs
                                                 </span>
                                             </div>
                                         </td>

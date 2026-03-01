@@ -111,10 +111,10 @@ export class BookingsService {
         // Store organizer contact info if not authenticated
         ...(!creatorId
           ? {
-              nombre_organizador: createBookingDto.organizer_name,
-              email_organizador: createBookingDto.organizer_email,
-              telefono_organizador: createBookingDto.organizer_phone,
-            }
+            nombre_organizador: createBookingDto.organizer_name,
+            email_organizador: createBookingDto.organizer_email,
+            telefono_organizador: createBookingDto.organizer_phone,
+          }
           : {}),
       })
       .select()
@@ -373,6 +373,9 @@ export class BookingsService {
       throw error;
     }
 
+    // Argentina timezone offset for correct UTC conversion
+    const AR_OFFSET = '-03:00';
+
     return (data || []).map((b: any) => {
       let startTime = '';
       let endTime = '';
@@ -381,14 +384,14 @@ export class BookingsService {
           b.hora_inicio.split(':').length === 2
             ? `${b.hora_inicio}:00`
             : b.hora_inicio;
-        startTime = new Date(`${b.fecha}T${timePart}`).toISOString();
+        startTime = new Date(`${b.fecha}T${timePart}${AR_OFFSET}`).toISOString();
 
         if (b.hora_fin) {
           const endPart =
             b.hora_fin.split(':').length === 2
               ? `${b.hora_fin}:00`
               : b.hora_fin;
-          endTime = new Date(`${b.fecha}T${endPart}`).toISOString();
+          endTime = new Date(`${b.fecha}T${endPart}${AR_OFFSET}`).toISOString();
         }
       } catch {
         startTime = new Date().toISOString();
@@ -412,6 +415,8 @@ export class BookingsService {
   private mapToFrontendStructure(b: any) {
     // Construct start_time from fecha and hora_inicio
     // b.fecha is 'YYYY-MM-DD', b.hora_inicio is 'HH:MM:SS' or 'HH:MM'
+    // These values represent Argentina local time (UTC-3)
+    const AR_OFFSET = '-03:00';
     let startTime = '';
     try {
       if (b.fecha && b.hora_inicio) {
@@ -421,8 +426,8 @@ export class BookingsService {
             ? `${b.hora_inicio}:00`
             : b.hora_inicio;
 
-        // Construct a valid ISO-like string: YYYY-MM-DDTHH:MM:SS
-        startTime = new Date(`${datePart}T${timePart}`).toISOString();
+        // Append Argentina offset so JS correctly converts to UTC
+        startTime = new Date(`${datePart}T${timePart}${AR_OFFSET}`).toISOString();
       }
     } catch (e) {
       this.logger.error(

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
-import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import { formatDateToDDMMYYYY, formatTimeToAR, todayAR } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -81,13 +81,12 @@ export default function AdminDashboard() {
     // Export modal state
     const [showExportModal, setShowExportModal] = useState(false);
     const [exportFrom, setExportFrom] = useState(() => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
+        return todayAR();
     });
     const [exportTo, setExportTo] = useState(() => {
-        const in30Days = new Date();
-        in30Days.setDate(in30Days.getDate() + 30);
-        return in30Days.toISOString().split('T')[0];
+        const inDate = new Date();
+        inDate.setDate(inDate.getDate() + 30);
+        return new Date(inDate.getTime()).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
     });
     const [exporting, setExporting] = useState(false);
 
@@ -100,13 +99,12 @@ export default function AdminDashboard() {
     } | null>(null);
 
     const [dateFrom, setDateFrom] = useState(() => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
+        return todayAR();
     });
     const [dateTo, setDateTo] = useState(() => {
-        const in30Days = new Date();
-        in30Days.setDate(in30Days.getDate() + 30);
-        return in30Days.toISOString().split('T')[0];
+        const inDate = new Date();
+        inDate.setDate(inDate.getDate() + 30);
+        return new Date(inDate.getTime()).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
     });
 
     const applyFilters = (list: Booking[]) => {
@@ -314,7 +312,7 @@ export default function AdminDashboard() {
             );
             const data = response.data.map(b => ({
                 Fecha: formatDateToDDMMYYYY(b.start_time),
-                Hora: new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                Hora: formatTimeToAR(b.start_time),
                 Cancha: b.court_name || `Cancha ${b.court_id}`,
                 Solicitante: b.solicitante_nombre || '',
                 Estado: b.status,
@@ -772,7 +770,7 @@ export default function AdminDashboard() {
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                                {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                                {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
                                             </div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
                                                 Solicita: {booking.solicitante_nombre}
@@ -831,7 +829,7 @@ export default function AdminDashboard() {
                                         </div>
                                         <div>
                                             <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                                {formatDateToDDMMYYYY(booking.start_time)} • {new Date(booking.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs
+                                                {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
                                             </div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
                                                 Solicita: {booking.solicitante_nombre}

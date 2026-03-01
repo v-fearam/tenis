@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
-import { formatDateToDDMMYYYY } from '../lib/dateUtils';
+import { formatDateToDDMMYYYY, todayAR } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -32,13 +32,12 @@ export default function AdminBloqueos() {
     const pagination = usePagination();
 
     const [dateFrom, setDateFrom] = useState(() => {
-        const today = new Date();
-        return today.toISOString().split('T')[0];
+        return todayAR();
     });
     const [dateTo, setDateTo] = useState(() => {
         const in30Days = new Date();
         in30Days.setDate(in30Days.getDate() + 30);
-        return in30Days.toISOString().split('T')[0];
+        return new Date(in30Days.getTime()).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
     });
 
     const filteredBloqueos = bloqueos;
@@ -60,7 +59,7 @@ export default function AdminBloqueos() {
     const [formData, setFormData] = useState({
         id_cancha: 1,
         tipo: 'mantenimiento',
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: todayAR(),
         fecha_fin: '',
         hora_inicio: '08:00',
         hora_fin: '22:00',
@@ -140,7 +139,7 @@ export default function AdminBloqueos() {
             setFormData({
                 id_cancha: 1,
                 tipo: 'mantenimiento',
-                fecha: new Date().toISOString().split('T')[0],
+                fecha: todayAR(),
                 fecha_fin: '',
                 hora_inicio: '08:00',
                 hora_fin: '22:00',
@@ -162,7 +161,7 @@ export default function AdminBloqueos() {
             hora_inicio: b.hora_inicio.substring(0, 5),
             hora_fin: b.hora_fin.substring(0, 5),
             descripcion: b.descripcion || '',
-            fecha: new Date().toISOString().split('T')[0],
+            fecha: todayAR(),
             fecha_fin: ''
         });
         setIsCreating(true);
@@ -506,16 +505,16 @@ export default function AdminBloqueos() {
                                     filteredBloqueos.map(b => (
                                         <tr key={b.id} className="hover-scale" style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }}>
                                             <td style={{ padding: '10px 12px', fontWeight: '700', fontSize: '0.9rem' }}>{b.canchas?.nombre || `Cancha ${b.id_cancha}`}</td>
-                                            <td style={{ padding: '10px 12px'}}>
+                                            <td style={{ padding: '10px 12px' }}>
                                                 {formatDateToDDMMYYYY(b.fecha)}
                                             </td>
-                                            <td style={{ padding: '10px 12px'}}>
+                                            <td style={{ padding: '10px 12px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <Clock size={14} style={{ opacity: 0.6 }} />
                                                     {b.hora_inicio.substring(0, 5)} - {b.hora_fin.substring(0, 5)}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '10px 12px'}}>
+                                            <td style={{ padding: '10px 12px' }}>
                                                 <span className="badge" style={{
                                                     background: b.tipo === 'torneo' ? '#D4EFDF' : b.tipo === 'mantenimiento' ? '#FADBD8' : 'var(--bg-main)',
                                                     color: b.tipo === 'torneo' ? '#1E8449' : b.tipo === 'mantenimiento' ? '#A93226' : 'var(--text-muted)',
@@ -526,7 +525,7 @@ export default function AdminBloqueos() {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '15px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{b.descripcion || '-'}</td>
-                                            <td style={{ padding: '10px 12px'}}>
+                                            <td style={{ padding: '10px 12px' }}>
                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                     <button
                                                         onClick={() => handleDuplicate(b)}

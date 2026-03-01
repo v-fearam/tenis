@@ -7,7 +7,7 @@ import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { Calendar as CalendarIcon, Wallet, CreditCard } from 'lucide-react';
-import { formatYYYYMMDDtoDDMMYYYY } from '../lib/dateUtils';
+import { formatYYYYMMDDtoDDMMYYYY, formatTimeToAR } from '../lib/dateUtils';
 import '../index.css';
 import logo from '../assets/logo.jpg';
 
@@ -152,7 +152,7 @@ export default function Reserve() {
             {bookingData && (
                 <BookingForm
                     courtId={bookingData.courtId}
-                    slot={new Date(bookingData.slot).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    slot={formatTimeToAR(bookingData.slot)}
                     onCancel={() => setBookingData(null)}
                     onSubmit={handleSubmitBooking}
                 />
