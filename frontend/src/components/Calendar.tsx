@@ -115,7 +115,8 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
     useEffect(() => {
         const fetchCalendarData = async () => {
             try {
-                const selectedDateStr = selectedDate.toISOString().split('T')[0];
+                // Use local date parts to avoid UTC timezone shift
+                const selectedDateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
                 // Fetch bookings for the selected date only
                 const bookingsResponse = await api.get<{ data: any[] }>(
