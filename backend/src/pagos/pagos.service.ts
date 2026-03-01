@@ -29,7 +29,7 @@ export class PagosService {
     paginationDto: PaginationDto,
     accessToken: string,
   ): Promise<PaginatedResponseDto<any>> {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const client = this.supabaseService.getClient();
     const page = paginationDto.page || 1;
     const pageSize = paginationDto.pageSize || this.defaultPageSize;
     const offset = (page - 1) * pageSize;
@@ -156,7 +156,10 @@ export class PagosService {
     adminName: string,
     accessToken: string,
   ) {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    try {
+    const client = this.supabaseService.getClient();
+
+    this.logger.log(`registerPayment: turno_jugador_id=${dto.turno_jugador_id}, monto=${dto.monto}`);
 
     // Fetch player record
     const { data: player, error: playerError } = await client
@@ -165,54 +168,82 @@ export class PagosService {
       .eq('id', dto.turno_jugador_id)
       .single();
 
-    if (playerError || !player) {
+    if (playerError) {
+      this.logger.error('Error fetching player', playerError);
       throw new NotFoundException('Jugador no encontrado');
     }
+    if (!player) {
+      throw new NotFoundException('Jugador no encontrado');
+    }
+
+    this.logger.log(`Player found: estado_pago=${player.estado_pago}, monto_generado=${player.monto_generado}, id_persona=${player.id_persona}`);
 
     if (player.estado_pago !== 'pendiente') {
       throw new BadRequestException('Este jugador ya está pagado');
     }
 
     const remaining = await this.computeRemainingDebt(dto.turno_jugador_id, client);
+    this.logger.log(`Remaining debt: ${remaining}`);
 
-    if (dto.monto > remaining) {
+    if (remaining <= 0) {
+      throw new BadRequestException('Este jugador no tiene deuda pendiente');
+    }
+
+    if (dto.monto > remaining + 0.01) {
       throw new BadRequestException(
         `El monto ($${dto.monto}) supera la deuda pendiente ($${remaining})`,
       );
     }
 
+    // Cap monto to remaining to handle floating point
+    const monto = Math.min(dto.monto, remaining);
+
     // Get socio id for the payment record
     const socioId = await this.getSocioId(player.id_persona, client);
+    this.logger.log(`Socio ID: ${socioId}`);
 
     // Insert payment
     const { error: insertError } = await client.from('pagos').insert({
       id_turno_jugador: dto.turno_jugador_id,
       id_socio: socioId,
-      monto: dto.monto,
+      monto: monto,
       tipo: 'pago',
       medio: dto.medio || null,
       observacion: dto.observacion || `Cobro por ${adminName}`,
     });
 
     if (insertError) {
-      this.logger.error('Error inserting payment', insertError);
-      throw new InternalServerErrorException('Error al registrar el pago');
+      this.logger.error('Error inserting payment', JSON.stringify(insertError));
+      throw new InternalServerErrorException(
+        `Error al registrar el pago: ${insertError.message || insertError.code || 'desconocido'}`,
+      );
     }
 
-    const newRemaining = remaining - dto.monto;
+    const newRemaining = remaining - monto;
 
     // If fully paid, update estado_pago
-    if (newRemaining <= 0) {
-      await client
+    if (newRemaining <= 0.01) {
+      const { error: updateError } = await client
         .from('turno_jugadores')
         .update({ estado_pago: 'pagado' })
         .eq('id', dto.turno_jugador_id);
+
+      if (updateError) {
+        this.logger.error('Error updating estado_pago', updateError);
+      }
     }
 
     return {
       remaining: Math.max(0, newRemaining),
-      estado_pago: newRemaining <= 0 ? 'pagado' : 'pendiente',
+      estado_pago: newRemaining <= 0.01 ? 'pagado' : 'pendiente',
     };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+      this.logger.error('Unexpected error in registerPayment', error?.toString(), (error as any)?.stack);
+      throw new InternalServerErrorException(`Error inesperado: ${error?.toString()}`);
+    }
   }
 
   async giftPayment(
@@ -220,7 +251,7 @@ export class PagosService {
     adminName: string,
     accessToken: string,
   ) {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const client = this.supabaseService.getClient();
 
     const { data: player, error: playerError } = await client
       .from('turno_jugadores')
@@ -274,7 +305,7 @@ export class PagosService {
     adminName: string,
     accessToken: string,
   ) {
-    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const client = this.supabaseService.getClient();
 
     // Fetch all pending players for this turno
     const { data: players, error: playersError } = await client
@@ -326,6 +357,34 @@ export class PagosService {
     }
 
     return { players_paid: playersPaid, total_paid: totalPaid };
+  }
+
+  async getMonthlyRevenue() {
+    const client = this.supabaseService.getClient();
+    const now = new Date();
+    const firstDay = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01T00:00:00`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const lastDayStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}T23:59:59`;
+
+    // Only 'pago' type counts as revenue (bonificacion/regalo does not)
+    const { data, error } = await client
+      .from('pagos')
+      .select('monto')
+      .eq('tipo', 'pago')
+      .gte('fecha', firstDay)
+      .lte('fecha', lastDayStr);
+
+    if (error) {
+      this.logger.error('Error fetching monthly revenue', error);
+      return { total: 0 };
+    }
+
+    const total = (data || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto),
+      0,
+    );
+
+    return { total };
   }
 
   private async computeRemainingDebt(

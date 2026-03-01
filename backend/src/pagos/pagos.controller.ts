@@ -21,6 +21,11 @@ import { PaginationDto } from '../common/dto';
 export class PagosController {
   constructor(private readonly pagosService: PagosService) {}
 
+  @Get('monthly-revenue')
+  getMonthlyRevenue() {
+    return this.pagosService.getMonthlyRevenue();
+  }
+
   @Get('unpaid')
   findUnpaid(@Query() query: PaginationDto, @Req() req: any) {
     return this.pagosService.findUnpaidTurnos(query, req.accessToken);

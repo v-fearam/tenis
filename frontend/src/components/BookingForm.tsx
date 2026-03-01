@@ -21,7 +21,7 @@ interface BookingFormProps {
 }
 
 export default function BookingForm({ courtId, slot, onCancel, onSubmit }: BookingFormProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [matchType, setMatchType] = useState<MatchType | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [editingSlot, setEditingSlot] = useState<number | null>(null);
@@ -75,8 +75,8 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
       is_organizer: i === 0,
       display_name: '',
       is_socio: true,
-      // Pre-fill first slot with logged-in user
-      ...(i === 0 && user
+      // Pre-fill first slot with logged-in user (skip for admins so they can choose)
+      ...(i === 0 && user && !isAdmin
         ? { user_id: user.id, display_name: user.nombre || user.email, is_socio: true }
         : {}),
     }));
@@ -89,7 +89,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
   };
 
   const clearPlayer = (index: number) => {
-    if (index === 0 && user) return; // Can't clear organizer if logged in
+    if (index === 0 && user && !isAdmin) return; // Can't clear organizer if logged in (admins can)
     setPlayers((prev) =>
       prev.map((p, i) =>
         i === index ? { ...p, user_id: undefined, guest_name: undefined, display_name: '', is_socio: true } : p
@@ -207,6 +207,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
                   index={index}
                   player={player}
                   isOrganizer={index === 0 && !!user}
+                  canEditOrganizer={isAdmin}
                   onEdit={() => setEditingSlot(index)}
                   onClear={() => clearPlayer(index)}
                 />
@@ -336,10 +337,11 @@ function TypeCard({ selected, onClick, icon, title, subtitle }: {
   );
 }
 
-function PlayerSlot({ index, player, isOrganizer, onEdit, onClear }: {
-  index: number; player: Player; isOrganizer: boolean; onEdit: () => void; onClear: () => void;
+function PlayerSlot({ index, player, isOrganizer, canEditOrganizer, onEdit, onClear }: {
+  index: number; player: Player; isOrganizer: boolean; canEditOrganizer?: boolean; onEdit: () => void; onClear: () => void;
 }) {
   const filled = player.display_name.trim() !== '';
+  const locked = isOrganizer && !canEditOrganizer;
 
   return (
     <div style={{
@@ -351,7 +353,7 @@ function PlayerSlot({ index, player, isOrganizer, onEdit, onClear }: {
       borderRadius: 'var(--radius-sm)',
       border: '1px solid var(--border)',
       background: filled ? 'var(--bg-main)' : 'var(--bg-card)',
-      cursor: filled && isOrganizer ? 'default' : 'pointer',
+      cursor: filled && locked ? 'default' : 'pointer',
       WebkitTapHighlightColor: 'transparent',
       transition: 'all 0.2s'
     }} onClick={!filled ? onEdit : undefined}>
@@ -383,14 +385,14 @@ function PlayerSlot({ index, player, isOrganizer, onEdit, onClear }: {
         )}
       </div>
 
-      {filled && !isOrganizer && (
+      {filled && !locked && (
         <button onClick={(e) => { e.stopPropagation(); onClear(); }} style={{
           background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px',
         }}>
           <X size={16} />
         </button>
       )}
-      {filled && !isOrganizer && (
+      {filled && !locked && (
         <button onClick={(e) => { e.stopPropagation(); onEdit(); }} style={{
           background: 'none', border: 'none', cursor: 'pointer', color: 'var(--brand-blue)', padding: '4px', fontSize: '0.75rem', fontWeight: '600',
         }}>

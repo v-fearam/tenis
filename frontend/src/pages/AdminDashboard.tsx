@@ -75,6 +75,15 @@ export default function AdminDashboard() {
     const [paymentAmounts, setPaymentAmounts] = useState<Record<string, string>>({});
     const [payingPlayer, setPayingPlayer] = useState<string | null>(null);
     const [totalDebt, setTotalDebt] = useState(0);
+    const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+
+    // Confirmation modal state
+    const [confirmModal, setConfirmModal] = useState<{
+        title: string;
+        message: string;
+        color: string;
+        onConfirm: () => void;
+    } | null>(null);
 
     const [dateFrom, setDateFrom] = useState(() => {
         const today = new Date();
@@ -122,14 +131,15 @@ export default function AdminDashboard() {
                 const pendingParams = paginationPending.getQueryParams();
                 const activeParams = paginationActive.getQueryParams();
 
-                const [bookingsResponse, activeResponse, usersCount] = await Promise.all([
+                const [bookingsResponse, activeResponse, usersCount, revenueData] = await Promise.all([
                     api.get<PaginatedResponse<Booking>>(
                         `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
                     ),
                     api.get<PaginatedResponse<Booking>>(
                         `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}`
                     ),
-                    api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 }))
+                    api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 })),
+                    api.get<{ total: number }>('/pagos/monthly-revenue').catch(() => ({ total: 0 }))
                 ]);
 
                 setBookings(bookingsResponse.data);
@@ -139,6 +149,7 @@ export default function AdminDashboard() {
                 paginationActive.setMeta(activeResponse.meta);
 
                 setTotalUsers(usersCount.count);
+                setMonthlyRevenue(revenueData.total);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -216,34 +227,48 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleGiftPlayer = async (turnoJugadorId: string, nombre: string) => {
-        if (!confirm(`¿Marcar como regalo la deuda de ${nombre}? No sumará a los ingresos.`)) return;
-        setPayingPlayer(turnoJugadorId);
-        try {
-            await api.post('/pagos/gift', { turno_jugador_id: turnoJugadorId });
-            setToast({ message: `Deuda de ${nombre} marcada como regalo`, type: 'success' });
-            setRefreshKey(prev => prev + 1);
-        } catch (err: any) {
-            setToast({ message: err?.message || 'Error al registrar regalo', type: 'error' });
-        } finally {
-            setPayingPlayer(null);
-        }
+    const handleGiftPlayer = (turnoJugadorId: string, nombre: string) => {
+        setConfirmModal({
+            title: 'Registrar Regalo',
+            message: `¿Marcar como regalo la deuda de ${nombre}? No sumará a los ingresos.`,
+            color: '#8E44AD',
+            onConfirm: async () => {
+                setConfirmModal(null);
+                setPayingPlayer(turnoJugadorId);
+                try {
+                    await api.post('/pagos/gift', { turno_jugador_id: turnoJugadorId });
+                    setToast({ message: `Deuda de ${nombre} marcada como regalo`, type: 'success' });
+                    setRefreshKey(prev => prev + 1);
+                } catch (err: any) {
+                    setToast({ message: err?.message || 'Error al registrar regalo', type: 'error' });
+                } finally {
+                    setPayingPlayer(null);
+                }
+            },
+        });
     };
 
-    const handlePayAll = async (turnoId: string) => {
-        if (!confirm('¿Registrar pago total de todos los jugadores de este turno?')) return;
-        try {
-            const result = await api.post<{ players_paid: number; total_paid: number }>('/pagos/pay-all', {
-                turno_id: turnoId,
-            });
-            setToast({
-                message: `${result.players_paid} jugador(es) pagados - Total: $${result.total_paid.toLocaleString('es-AR')}`,
-                type: 'success'
-            });
-            setRefreshKey(prev => prev + 1);
-        } catch (err: any) {
-            setToast({ message: err?.message || 'Error al pagar todo', type: 'error' });
-        }
+    const handlePayAll = (turnoId: string, totalPendiente: number) => {
+        setConfirmModal({
+            title: 'Pagar Todo',
+            message: `¿Registrar pago total de $${totalPendiente.toLocaleString('es-AR')} para todos los jugadores de este turno?`,
+            color: '#27AE60',
+            onConfirm: async () => {
+                setConfirmModal(null);
+                try {
+                    const result = await api.post<{ players_paid: number; total_paid: number }>('/pagos/pay-all', {
+                        turno_id: turnoId,
+                    });
+                    setToast({
+                        message: `${result.players_paid} jugador(es) pagados - Total: $${result.total_paid.toLocaleString('es-AR')}`,
+                        type: 'success'
+                    });
+                    setRefreshKey(prev => prev + 1);
+                } catch (err: any) {
+                    setToast({ message: err?.message || 'Error al pagar todo', type: 'error' });
+                }
+            },
+        });
     };
 
     const handlePurgeTurnos = async () => {
@@ -391,6 +416,41 @@ export default function AdminDashboard() {
                 </div>
             )}
 
+            {/* Confirmation Modal */}
+            {confirmModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                }} onClick={() => setConfirmModal(null)}>
+                    <div className="card glass animate-slide-up" style={{ maxWidth: '400px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+                        <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: confirmModal.color, marginBottom: '16px' }}>
+                            {confirmModal.title}
+                        </h2>
+                        <p style={{ fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.5, marginBottom: '24px' }}>
+                            {confirmModal.message}
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setConfirmModal(null)}
+                                className="btn-secondary"
+                                style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={confirmModal.onConfirm}
+                                style={{
+                                    padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700',
+                                    background: confirmModal.color, color: 'white', border: 'none', cursor: 'pointer'
+                                }}
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MAIN CONTENT AREA */}
             <main style={{ padding: '20px' }}>
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -441,6 +501,12 @@ export default function AdminDashboard() {
                         value={totalUsers}
                         icon={<Users size={22} />}
                         color="blue"
+                    />
+                    <StatCard
+                        title="Recaudado del Mes"
+                        value={`$${monthlyRevenue.toLocaleString('es-AR')}`}
+                        icon={<DollarSign size={22} />}
+                        color="green"
                     />
                     <StatCard
                         title="Deuda Pendiente"
@@ -763,7 +829,7 @@ export default function AdminDashboard() {
                                                     ${turno.total_pendiente.toLocaleString('es-AR')}
                                                 </span>
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); handlePayAll(turno.turno_id); }}
+                                                    onClick={(e) => { e.stopPropagation(); handlePayAll(turno.turno_id, turno.total_pendiente); }}
                                                     style={{
                                                         padding: '6px 12px', borderRadius: '10px', fontSize: '0.8rem',
                                                         fontWeight: '700', background: '#27AE60', color: 'white',

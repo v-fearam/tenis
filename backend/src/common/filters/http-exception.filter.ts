@@ -27,7 +27,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           ? exceptionResponse
           : (exceptionResponse as any).message || exception.message;
     } else if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
+    } else {
+      this.logger.error('Unknown exception', JSON.stringify(exception));
     }
 
     response.status(status).json({
