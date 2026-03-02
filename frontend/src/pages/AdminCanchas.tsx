@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import type { Cancha, CreateCanchaPayload, UpdateCanchaPayload } from '../types/cancha';
-import { Plus, Edit2, X, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Edit2, X, CheckCircle, XCircle, Lightbulb } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 
 type ModalMode = 'create' | 'edit' | null;
@@ -22,6 +22,7 @@ export default function AdminCanchas() {
         hora_apertura: '08:00:00',
         hora_cierre: '22:30:00',
         activa: true,
+        tiene_luz: false,
     });
 
     const fetchCanchas = useCallback(async () => {
@@ -47,6 +48,7 @@ export default function AdminCanchas() {
             hora_apertura: '08:00:00',
             hora_cierre: '22:30:00',
             activa: true,
+            tiene_luz: false,
         });
         setEditingCancha(null);
         setFormError('');
@@ -60,6 +62,7 @@ export default function AdminCanchas() {
             hora_apertura: cancha.hora_apertura,
             hora_cierre: cancha.hora_cierre,
             activa: cancha.activa,
+            tiene_luz: cancha.tiene_luz,
         });
         setEditingCancha(cancha);
         setFormError('');
@@ -155,6 +158,7 @@ export default function AdminCanchas() {
                             <th style={thStyle}>Superficie</th>
                             <th style={thStyle}>Apertura</th>
                             <th style={thStyle}>Cierre</th>
+                            <th style={thStyle}>Luz</th>
                             <th style={thStyle}>Estado</th>
                             <th style={{ ...thStyle, textAlign: 'center' }}>Acciones</th>
                         </tr>
@@ -162,7 +166,7 @@ export default function AdminCanchas() {
                     <tbody>
                         {canchas.length === 0 ? (
                             <tr>
-                                <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                                <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                                     No hay canchas registradas.
                                 </td>
                             </tr>
@@ -174,6 +178,9 @@ export default function AdminCanchas() {
                                     <td style={tdStyle}>{cancha.superficie}</td>
                                     <td style={tdStyle}>{cancha.hora_apertura}</td>
                                     <td style={tdStyle}>{cancha.hora_cierre}</td>
+                                    <td style={tdStyle}>
+                                        {cancha.tiene_luz && <Lightbulb size={16} style={{ color: '#FFB800' }} />}
+                                    </td>
                                     <td style={tdStyle}>
                                         <span style={{
                                             color: cancha.activa ? '#27AE60' : '#E74C3C',
@@ -290,15 +297,29 @@ export default function AdminCanchas() {
                                     </FormField>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
-                                    <input
-                                        type="checkbox"
-                                        id="activa"
-                                        checked={formData.activa}
-                                        onChange={(e) => setFormData({ ...formData, activa: e.target.checked })}
-                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                    />
-                                    <label htmlFor="activa" style={{ fontSize: '0.95rem', cursor: 'pointer' }}>Cancha activa</label>
+                                <div style={{ display: 'flex', gap: '24px', marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="checkbox"
+                                            id="activa"
+                                            checked={formData.activa}
+                                            onChange={(e) => setFormData({ ...formData, activa: e.target.checked })}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        <label htmlFor="activa" style={{ fontSize: '0.95rem', cursor: 'pointer' }}>Cancha activa</label>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="checkbox"
+                                            id="tiene_luz"
+                                            checked={formData.tiene_luz}
+                                            onChange={(e) => setFormData({ ...formData, tiene_luz: e.target.checked })}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        <label htmlFor="tiene_luz" style={{ fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Tiene luz <Lightbulb size={14} style={{ color: '#FFB800' }} />
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
 

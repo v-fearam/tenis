@@ -8,6 +8,7 @@ interface Court {
     nombre: string;
     hora_apertura?: string;
     hora_cierre?: string;
+    tiene_luz?: boolean;
 }
 
 interface Booking {
@@ -45,14 +46,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
         blocksPerTurn: 3
     });
 
-    // Initial courts ordered by light availability (with light first)
-    const [courts, setCourts] = useState<Court[]>([
-        { id: 4, nombre: 'Cancha 4', hora_apertura: '08:00', hora_cierre: '23:30' },
-        { id: 5, nombre: 'Cancha 5', hora_apertura: '08:00', hora_cierre: '23:30' },
-        { id: 1, nombre: 'Cancha 1', hora_apertura: '08:00', hora_cierre: '18:00' },
-        { id: 2, nombre: 'Cancha 2', hora_apertura: '08:00', hora_cierre: '18:00' },
-        { id: 3, nombre: 'Cancha 3', hora_apertura: '08:00', hora_cierre: '18:00' },
-    ]);
+    const [courts, setCourts] = useState<Court[]>([]);
 
     useEffect(() => {
         const fetchConfig = async () => {
@@ -63,12 +57,12 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     return api.get<Court[]>('/bookings/courts');
                 });
                 if (courtsData && courtsData.length > 0) {
-                    // Sort courts: with light (later closing time) first, then without light
+                    // Sort courts: with light first (left to right), then by name
                     const sortedCourts = courtsData.sort((a, b) => {
-                        const aClose = a.hora_cierre || '18:00';
-                        const bClose = b.hora_cierre || '18:00';
-                        // Sort descending (later closing time first)
-                        return bClose.localeCompare(aClose);
+                        const aLuz = a.tiene_luz ? 1 : 0;
+                        const bLuz = b.tiene_luz ? 1 : 0;
+                        if (bLuz !== aLuz) return bLuz - aLuz;
+                        return a.nombre.localeCompare(b.nombre);
                     });
                     setCourts(sortedCourts);
                 }
@@ -295,8 +289,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                 {/* Header: Courts (Sticky Top) */}
                 <div className="court-header-corner"></div>
                 {courts.map(court => {
-                    // Check if court has lighting (closes after 20:00)
-                    const hasLight = court.hora_cierre && court.hora_cierre >= '20:00';
+                    const hasLight = court.tiene_luz;
 
                     return (
                         <div key={court.id} className="court-header">

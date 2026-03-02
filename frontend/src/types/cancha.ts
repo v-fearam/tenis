@@ -5,6 +5,7 @@ export interface Cancha {
     activa: boolean;
     hora_apertura: string;
     hora_cierre: string;
+    tiene_luz: boolean;
     created_at?: string;
 }
 
@@ -14,6 +15,7 @@ export interface CreateCanchaPayload {
     activa?: boolean;
     hora_apertura: string;
     hora_cierre: string;
+    tiene_luz?: boolean;
 }
 
 export type UpdateCanchaPayload = Partial<CreateCanchaPayload>;

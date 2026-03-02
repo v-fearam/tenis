@@ -30,4 +30,8 @@ export class CreateCanchaDto {
     message: 'hora_cierre must be a valid time (HH:mm:ss)',
   })
   hora_cierre: string;
+
+  @IsBoolean()
+  @IsOptional()
+  tiene_luz?: boolean;
 }

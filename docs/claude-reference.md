@@ -120,6 +120,7 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 | activa | bool | default: true |
 | hora_apertura | time | default: 08:00 |
 | hora_cierre | time | default: 22:30 |
+| tiene_luz | bool | default: false |
 
 ### turnos (44 rows)
 | Column | Type | Notes |

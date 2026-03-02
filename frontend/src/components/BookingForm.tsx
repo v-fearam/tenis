@@ -199,6 +199,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
               {editingSlot === index ? (
                 <PlayerEditor
                   index={index}
+                  excludeUserIds={players.filter((_, i) => i !== index).map(p => p.user_id).filter(Boolean) as string[]}
                   onSelect={(data) => updatePlayer(index, data)}
                   onCancel={() => setEditingSlot(null)}
                 />
@@ -403,8 +404,9 @@ function PlayerSlot({ index, player, isOrganizer, canEditOrganizer, onEdit, onCl
   );
 }
 
-function PlayerEditor({ index, onSelect, onCancel }: {
+function PlayerEditor({ index, excludeUserIds = [], onSelect, onCancel }: {
   index: number;
+  excludeUserIds?: string[];
   onSelect: (data: Partial<Player>) => void;
   onCancel: () => void;
 }) {
@@ -585,7 +587,7 @@ function PlayerEditor({ index, onSelect, onCancel }: {
           border: '1px solid var(--border)',
           WebkitOverflowScrolling: 'touch'
         }}>
-          {results.map((u) => (
+          {results.filter(u => !excludeUserIds.includes(u.id)).map((u) => (
             <div
               key={u.id}
               onClick={() => onSelect({
@@ -617,8 +619,10 @@ function PlayerEditor({ index, onSelect, onCancel }: {
         </div>
       )}
 
-      {searchQuery.length >= 2 && !searching && results.length === 0 && (
-        <p style={{ color: '#A04000', fontSize: '0.8rem', padding: '8px 0' }}>No se encontraron socios.</p>
+      {searchQuery.length >= 2 && !searching && results.filter(u => !excludeUserIds.includes(u.id)).length === 0 && (
+        <p style={{ color: '#A04000', fontSize: '0.8rem', padding: '8px 0' }}>
+          {results.length > 0 ? 'Este socio ya está en el partido.' : 'No se encontraron socios.'}
+        </p>
       )}
     </div>
   );
