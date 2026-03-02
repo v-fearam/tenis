@@ -82,7 +82,7 @@ export default function Reserve() {
         };
     }, [user, refreshKey]);
 
-    const handleSubmitBooking = async (details: { type: MatchType; players: Player[]; organizer_name?: string; organizer_email?: string; organizer_phone?: string }) => {
+    const handleSubmitBooking = async (details: { type: MatchType; players: Player[]; organizer_name?: string; organizer_phone?: string }) => {
         if (!bookingData) return;
 
         try {
@@ -113,7 +113,6 @@ export default function Reserve() {
                 // Include organizer contact info if not authenticated
                 ...(details.organizer_name && {
                     organizer_name: details.organizer_name,
-                    organizer_email: details.organizer_email,
                     organizer_phone: details.organizer_phone,
                 }),
                 // Include reCAPTCHA token

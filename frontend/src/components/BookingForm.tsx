@@ -17,7 +17,7 @@ interface BookingFormProps {
   courtId: number;
   slot: string;
   onCancel: () => void;
-  onSubmit: (data: { type: MatchType; players: Player[]; organizer_name?: string; organizer_email?: string; organizer_phone?: string }) => void;
+  onSubmit: (data: { type: MatchType; players: Player[]; organizer_name?: string; organizer_phone?: string }) => void;
 }
 
 export default function BookingForm({ courtId, slot, onCancel, onSubmit }: BookingFormProps) {
@@ -28,7 +28,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
 
   // Contact info for non-authenticated organizers
   const [organizerName, setOrganizerName] = useState('');
-  const [organizerEmail, setOrganizerEmail] = useState('');
   const [organizerPhone, setOrganizerPhone] = useState('');
 
   const maxPlayers = matchType === MatchType.SINGLE ? 2 : 4;
@@ -97,7 +96,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
     );
   };
 
-  const organizerContactFilled = user || (organizerName.trim() !== '' && organizerEmail.trim() !== '' && organizerPhone.trim() !== '');
+  const organizerContactFilled = user || (organizerName.trim() !== '' && organizerPhone.trim() !== '');
   const canSubmit = allPlayersFilled && organizerContactFilled;
 
   // Step 1: Select match type
@@ -170,14 +169,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
                 placeholder="Nombre completo *"
                 value={organizerName}
                 onChange={(e) => setOrganizerName(e.target.value)}
-                className="form-input"
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email *"
-                value={organizerEmail}
-                onChange={(e) => setOrganizerEmail(e.target.value)}
                 className="form-input"
                 required
               />
@@ -282,7 +273,6 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
               players,
               ...(organizerName && {
                 organizer_name: organizerName,
-                organizer_email: organizerEmail,
                 organizer_phone: organizerPhone,
               })
             })}
