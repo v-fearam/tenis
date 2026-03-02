@@ -24,6 +24,13 @@ export class BookingsService {
   private readonly logger = new Logger(BookingsService.name);
   private readonly defaultPageSize: number;
 
+  // In-memory price cache with TTL (5 minutes)
+  private priceCache: {
+    prices: Record<string, number>;
+    expiresAt: number;
+  } | null = null;
+  private static readonly PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
+
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly abonosService: AbonosService,
@@ -313,36 +320,33 @@ export class BookingsService {
       throw new NotFoundException('Reserva no encontrada');
     }
 
-    // Refund abono credits for players that used them
+    // Refund abono credits for players that used them (single query + atomic batch refund)
     const { data: playersWithAbono, error: abonoQueryError } = await client
       .from('turno_jugadores')
-      .select('id_persona, uso_abono')
+      .select('id_persona')
       .eq('id_turno', bookingId)
       .eq('uso_abono', true);
 
-    this.logger.log(`Cancel refund: found ${playersWithAbono?.length ?? 0} players with uso_abono=true for turno ${bookingId}`);
     if (abonoQueryError) {
       this.logger.error(`Error querying turno_jugadores for refund: ${JSON.stringify(abonoQueryError)}`);
     }
 
-    if (playersWithAbono && playersWithAbono.length > 0) {
-      const playerIds = playersWithAbono.map((p) => p.id_persona).filter(Boolean);
-      if (playerIds.length > 0) {
-        const { data: socios } = await client
-          .from('socios')
-          .select('id, id_usuario, creditos_disponibles')
-          .in('id_usuario', playerIds);
+    const playerIds = (playersWithAbono || [])
+      .map((p: any) => p.id_persona)
+      .filter(Boolean);
 
-        for (const socio of socios || []) {
-          this.logger.log(`Refunding credit to socio ${socio.id_usuario}: ${socio.creditos_disponibles} -> ${socio.creditos_disponibles + 1}`);
-          await client
-            .from('socios')
-            .update({
-              creditos_disponibles: socio.creditos_disponibles + 1,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', socio.id);
-        }
+    this.logger.log(`Cancel refund: found ${playerIds.length} players with uso_abono=true for turno ${bookingId}`);
+
+    if (playerIds.length > 0) {
+      const { data: refunded, error: refundError } = await client.rpc(
+        'refund_abono_credits',
+        { p_user_ids: playerIds },
+      );
+
+      if (refundError) {
+        this.logger.error(`Error batch-refunding credits: ${JSON.stringify(refundError)}`);
+      } else {
+        this.logger.log(`Refunded credits for ${refunded} socios`);
       }
     }
 
@@ -484,6 +488,11 @@ export class BookingsService {
   }
 
   private async getPrices(client: any) {
+    // Return cached prices if still valid
+    if (this.priceCache && Date.now() < this.priceCache.expiresAt) {
+      return this.priceCache.prices;
+    }
+
     const { data: allConfigs, error: configError } = await client
       .from('config_sistema')
       .select('clave, valor');
@@ -501,7 +510,7 @@ export class BookingsService {
       }
     });
 
-    return {
+    const prices = {
       price_socio_libre: 0,
       price_socio_partidos:
         configMap['precio_socio_abonado'] ??
@@ -516,12 +525,22 @@ export class BookingsService {
         configMap['precio_invitado'] ??
         DEFAULT_PRICES.price_no_socio,
     };
+
+    this.priceCache = {
+      prices,
+      expiresAt: Date.now() + BookingsService.PRICE_CACHE_TTL_MS,
+    };
+
+    return prices;
   }
 
   /**
    * Calculate costs and consume abono credits at booking creation time.
    * Updates turno_jugadores with uso_abono and monto_generado.
    * Returns the total booking cost (only what needs to be paid, not abono-covered).
+   *
+   * Optimized: batch-fetches data, uses atomic credit consumption,
+   * and batches turno_jugadores updates by outcome.
    */
   private async calculateAndApplyCosts(
     players: any[],
@@ -530,7 +549,7 @@ export class BookingsService {
     const prices = await this.getPrices(client);
     const numPlayers = players.length;
 
-    // Batch-fetch socios and usuarios for registered players
+    // Batch-fetch socios and usuarios for registered players (2 queries)
     const registeredPlayerIds = players
       .filter((p: any) => p.id_persona)
       .map((p: any) => p.id_persona);
@@ -539,38 +558,40 @@ export class BookingsService {
     const usuarioMap = new Map<string, any>();
 
     if (registeredPlayerIds.length > 0) {
-      const { data: socios } = await client
-        .from('socios')
-        .select('id, id_usuario, id_tipo_abono, creditos_disponibles')
-        .in('id_usuario', registeredPlayerIds);
+      const [sociosResult, usuariosResult] = await Promise.all([
+        client
+          .from('socios')
+          .select('id, id_usuario, id_tipo_abono, creditos_disponibles')
+          .in('id_usuario', registeredPlayerIds),
+        client
+          .from('usuarios')
+          .select('id, nombre, rol, socios(id, id_tipo_abono, tipo_abono:tipos_abono(nombre))')
+          .in('id', registeredPlayerIds),
+      ]);
 
-      socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
-
-      const { data: usuarios } = await client
-        .from('usuarios')
-        .select('id, nombre, rol, socios(id, id_tipo_abono, tipo_abono:tipos_abono(nombre))')
-        .in('id', registeredPlayerIds);
-
-      usuarios?.forEach((u: any) => usuarioMap.set(u.id, u));
+      sociosResult.data?.forEach((s: any) => socioMap.set(s.id_usuario, s));
+      usuariosResult.data?.forEach((u: any) => usuarioMap.set(u.id, u));
     }
 
+    // Calculate costs and consume credits atomically
     let totalCosto = 0;
+    const abonoPlayerIds: string[] = [];
+    const costUpdates: { id: string; monto: number }[] = [];
 
     for (const player of players) {
-      let montoGenerado = 0;
-      let usoAbono = false;
-
       const socio = player.id_persona
         ? socioMap.get(player.id_persona)
         : null;
 
-      // Try to consume abono credit
+      // Try atomic credit consumption (single UPDATE with WHERE guard)
+      let usoAbono = false;
       if (socio) {
-        usoAbono = await this.abonosService.consumeCredit(socio.id);
+        usoAbono = await this.consumeCreditAtomic(socio.id, client);
       }
 
-      // If no abono credit used, calculate proportional cost
-      if (!usoAbono) {
+      if (usoAbono) {
+        abonoPlayerIds.push(player.id);
+      } else {
         const usuario = player.id_persona
           ? usuarioMap.get(player.id_persona)
           : null;
@@ -579,24 +600,70 @@ export class BookingsService {
           usuario,
           prices,
         );
-        montoGenerado = baseCost / numPlayers;
+        const montoGenerado = baseCost / numPlayers;
+        costUpdates.push({ id: player.id, monto: montoGenerado });
+        totalCosto += montoGenerado;
       }
-
-      // Update turno_jugadores with cost info
-      await client
-        .from('turno_jugadores')
-        .update({ uso_abono: usoAbono, monto_generado: montoGenerado })
-        .eq('id', player.id);
-
-      totalCosto += montoGenerado;
     }
+
+    // Batch update turno_jugadores: abono players (single query)
+    const updatePromises: Promise<any>[] = [];
+
+    if (abonoPlayerIds.length > 0) {
+      updatePromises.push(
+        client
+          .from('turno_jugadores')
+          .update({ uso_abono: true, monto_generado: 0 })
+          .in('id', abonoPlayerIds),
+      );
+    }
+
+    // Non-abono players: group by monto to minimize queries
+    const montoGroups = new Map<number, string[]>();
+    for (const { id, monto } of costUpdates) {
+      const group = montoGroups.get(monto) || [];
+      group.push(id);
+      montoGroups.set(monto, group);
+    }
+
+    for (const [monto, ids] of montoGroups) {
+      updatePromises.push(
+        client
+          .from('turno_jugadores')
+          .update({ uso_abono: false, monto_generado: monto })
+          .in('id', ids),
+      );
+    }
+
+    await Promise.all(updatePromises);
 
     return totalCosto;
   }
 
   /**
+   * Atomically consume one abono credit using a conditional UPDATE.
+   * Avoids the read-then-write race condition of the original consumeCredit.
+   */
+  private async consumeCreditAtomic(
+    socioId: string,
+    client: any,
+  ): Promise<boolean> {
+    const { data, error } = await client.rpc('consume_abono_credit', {
+      p_socio_id: socioId,
+    });
+
+    if (error) {
+      this.logger.warn(`Atomic credit consume failed for socio ${socioId}: ${JSON.stringify(error)}`);
+      return false;
+    }
+
+    return data === true;
+  }
+
+  /**
    * Generate payment (debt) entries from pre-calculated turno_jugadores costs.
    * Called when admin confirms a booking.
+   * Optimized: single batch INSERT instead of N individual inserts.
    */
   private async generatePlayerDebtsFromPrecalculated(
     booking: any,
@@ -607,34 +674,36 @@ export class BookingsService {
       .filter((p: any) => p.id_persona)
       .map((p: any) => p.id_persona);
 
+    if (registeredPlayerIds.length === 0) return;
+
+    const { data: socios } = await client
+      .from('socios')
+      .select('id, id_usuario')
+      .in('id_usuario', registeredPlayerIds);
+
     const socioMap = new Map<string, any>();
+    socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
 
-    if (registeredPlayerIds.length > 0) {
-      const { data: socios } = await client
-        .from('socios')
-        .select('id, id_usuario')
-        .in('id_usuario', registeredPlayerIds);
-
-      socios?.forEach((s: any) => socioMap.set(s.id_usuario, s));
-    }
-
-    for (const player of booking.turno_jugadores) {
-      const monto = Number(player.monto_generado) || 0;
-      if (monto <= 0) continue;
-
-      const socio = player.id_persona
-        ? socioMap.get(player.id_persona)
-        : null;
-
-      if (!socio) continue;
-
-      await client.from('pagos').insert({
-        id_turno_jugador: player.id,
-        id_socio: socio.id,
-        monto: -monto,
+    // Collect all pago rows and insert in a single batch
+    const pagosToInsert = booking.turno_jugadores
+      .filter((p: any) => {
+        const monto = Number(p.monto_generado) || 0;
+        return monto > 0 && p.id_persona && socioMap.has(p.id_persona);
+      })
+      .map((p: any) => ({
+        id_turno_jugador: p.id,
+        id_socio: socioMap.get(p.id_persona).id,
+        monto: -Number(p.monto_generado),
         tipo: 'cargo',
         observacion: `Reserva Cancha ${booking.id_cancha} - ${booking.fecha} ${booking.hora_inicio}`,
-      });
+      }));
+
+    if (pagosToInsert.length > 0) {
+      const { error } = await client.from('pagos').insert(pagosToInsert);
+      if (error) {
+        this.logger.error(`Error batch-inserting pagos: ${JSON.stringify(error)}`);
+        throw error;
+      }
     }
   }
 

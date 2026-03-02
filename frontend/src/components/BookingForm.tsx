@@ -46,7 +46,10 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
       return;
     }
 
-    const fetchPreview = async () => {
+    const abortController = new AbortController();
+    let debounceTimer: ReturnType<typeof setTimeout>;
+
+    debounceTimer = setTimeout(async () => {
       setLoadingPreview(true);
       try {
         const result = await api.post<typeof costPreview>('/bookings/preview', {
@@ -54,16 +57,25 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
             user_id: p.user_id || undefined,
             guest_name: p.guest_name || undefined,
           })),
-        });
-        setCostPreview(result);
-      } catch {
-        setCostPreview(null);
+        }, { signal: abortController.signal });
+        if (!abortController.signal.aborted) {
+          setCostPreview(result);
+        }
+      } catch (err) {
+        if (!abortController.signal.aborted) {
+          setCostPreview(null);
+        }
       } finally {
-        setLoadingPreview(false);
+        if (!abortController.signal.aborted) {
+          setLoadingPreview(false);
+        }
       }
-    };
+    }, 350);
 
-    fetchPreview();
+    return () => {
+      clearTimeout(debounceTimer);
+      abortController.abort();
+    };
   }, [players.map(p => `${p.user_id || ''}|${p.guest_name || ''}`).join(',')]);
 
 

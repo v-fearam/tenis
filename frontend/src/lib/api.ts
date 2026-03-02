@@ -45,10 +45,11 @@ class ApiClient {
     return this.request<T>(path);
   }
 
-  post<T>(path: string, body: unknown) {
+  post<T>(path: string, body: unknown, options?: { signal?: AbortSignal }) {
     return this.request<T>(path, {
       method: 'POST',
       body: JSON.stringify(body),
+      signal: options?.signal,
     });
   }
 

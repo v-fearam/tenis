@@ -52,32 +52,35 @@ export class PagosService {
       return PaginatedResponseDto.create([], page, pageSize, 0);
     }
 
-    // Step 2: Count total matching turnos
-    const { count, error: countError } = await client
-      .from('turnos')
-      .select('*', { count: 'exact', head: true })
-      .in('id', turnoIds)
-      .eq('estado', 'confirmado');
+    // Steps 2+3: Count and fetch paginated turnos in parallel
+    const [countResult, turnosResult] = await Promise.all([
+      client
+        .from('turnos')
+        .select('*', { count: 'exact', head: true })
+        .in('id', turnoIds)
+        .eq('estado', 'confirmado'),
+      client
+        .from('turnos')
+        .select('id, id_cancha, fecha, hora_inicio, canchas(nombre), turno_jugadores(id, id_persona, tipo_persona, nombre_invitado, uso_abono, monto_generado, estado_pago, usuarios:id_persona(nombre))')
+        .in('id', turnoIds)
+        .eq('estado', 'confirmado')
+        .order('fecha', { ascending: false })
+        .order('hora_inicio', { ascending: false })
+        .range(offset, offset + pageSize - 1),
+    ]);
 
-    if (countError) {
-      this.logger.error('Error counting unpaid turnos', countError);
+    if (countResult.error) {
+      this.logger.error('Error counting unpaid turnos', countResult.error);
       throw new InternalServerErrorException('Error al contar turnos impagos');
     }
 
-    // Step 3: Get paginated turnos with players
-    const { data: turnos, error: turnosError } = await client
-      .from('turnos')
-      .select('id, id_cancha, fecha, hora_inicio, canchas(nombre), turno_jugadores(id, id_persona, tipo_persona, nombre_invitado, uso_abono, monto_generado, estado_pago, usuarios:id_persona(nombre))')
-      .in('id', turnoIds)
-      .eq('estado', 'confirmado')
-      .order('fecha', { ascending: false })
-      .order('hora_inicio', { ascending: false })
-      .range(offset, offset + pageSize - 1);
-
-    if (turnosError) {
-      this.logger.error('Error fetching unpaid turnos', turnosError);
+    if (turnosResult.error) {
+      this.logger.error('Error fetching unpaid turnos', turnosResult.error);
       throw new InternalServerErrorException('Error al obtener turnos impagos');
     }
+
+    const count = countResult.count;
+    const turnos = turnosResult.data;
 
     if (!turnos || turnos.length === 0) {
       return PaginatedResponseDto.create([], page, pageSize, count || 0);
@@ -161,20 +164,26 @@ export class PagosService {
 
     this.logger.log(`registerPayment: turno_jugador_id=${dto.turno_jugador_id}, monto=${dto.monto}`);
 
-    // Fetch player record
-    const { data: player, error: playerError } = await client
-      .from('turno_jugadores')
-      .select('id, monto_generado, estado_pago, id_persona')
-      .eq('id', dto.turno_jugador_id)
-      .single();
+    // Fetch player + existing payments in parallel (2 queries instead of 3 sequential)
+    const [playerResult, pagosResult] = await Promise.all([
+      client
+        .from('turno_jugadores')
+        .select('id, monto_generado, estado_pago, id_persona')
+        .eq('id', dto.turno_jugador_id)
+        .single(),
+      client
+        .from('pagos')
+        .select('monto')
+        .eq('id_turno_jugador', dto.turno_jugador_id)
+        .in('tipo', ['pago', 'bonificacion', 'devolucion']),
+    ]);
 
-    if (playerError) {
-      this.logger.error('Error fetching player', playerError);
+    if (playerResult.error || !playerResult.data) {
+      this.logger.error('Error fetching player', playerResult.error);
       throw new NotFoundException('Jugador no encontrado');
     }
-    if (!player) {
-      throw new NotFoundException('Jugador no encontrado');
-    }
+
+    const player = playerResult.data;
 
     this.logger.log(`Player found: estado_pago=${player.estado_pago}, monto_generado=${player.monto_generado}, id_persona=${player.id_persona}`);
 
@@ -182,7 +191,13 @@ export class PagosService {
       throw new BadRequestException('Este jugador ya está pagado');
     }
 
-    const remaining = await this.computeRemainingDebt(dto.turno_jugador_id, client);
+    // Compute remaining from already-fetched data (no extra query)
+    const montoGenerado = Number(player.monto_generado) || 0;
+    const totalPaid = (pagosResult.data || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto), 0,
+    );
+    const remaining = Math.max(0, montoGenerado - totalPaid);
+
     this.logger.log(`Remaining debt: ${remaining}`);
 
     if (remaining <= 0) {
@@ -253,21 +268,36 @@ export class PagosService {
   ) {
     const client = this.supabaseService.getClient();
 
-    const { data: player, error: playerError } = await client
-      .from('turno_jugadores')
-      .select('id, monto_generado, estado_pago, id_persona')
-      .eq('id', dto.turno_jugador_id)
-      .single();
+    // Fetch player + existing payments in parallel (2 queries instead of 3 sequential)
+    const [playerResult, pagosResult] = await Promise.all([
+      client
+        .from('turno_jugadores')
+        .select('id, monto_generado, estado_pago, id_persona')
+        .eq('id', dto.turno_jugador_id)
+        .single(),
+      client
+        .from('pagos')
+        .select('monto')
+        .eq('id_turno_jugador', dto.turno_jugador_id)
+        .in('tipo', ['pago', 'bonificacion', 'devolucion']),
+    ]);
 
-    if (playerError || !player) {
+    if (playerResult.error || !playerResult.data) {
       throw new NotFoundException('Jugador no encontrado');
     }
+
+    const player = playerResult.data;
 
     if (player.estado_pago !== 'pendiente') {
       throw new BadRequestException('Este jugador ya está pagado');
     }
 
-    const remaining = await this.computeRemainingDebt(dto.turno_jugador_id, client);
+    // Compute remaining from already-fetched data
+    const montoGenerado = Number(player.monto_generado) || 0;
+    const totalPaid = (pagosResult.data || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto), 0,
+    );
+    const remaining = Math.max(0, montoGenerado - totalPaid);
 
     if (remaining <= 0) {
       throw new BadRequestException('No hay deuda pendiente');
@@ -275,27 +305,27 @@ export class PagosService {
 
     const socioId = await this.getSocioId(player.id_persona, client);
 
-    // Insert bonificacion
-    const { error: insertError } = await client.from('pagos').insert({
-      id_turno_jugador: dto.turno_jugador_id,
-      id_socio: socioId,
-      monto: remaining,
-      tipo: 'bonificacion',
-      observacion: dto.observacion
-        ? `Regalo por ${adminName}: ${dto.observacion}`
-        : `Regalo por ${adminName}`,
-    });
+    // Insert bonificacion + mark as bonificado in parallel
+    const [insertResult, updateResult] = await Promise.all([
+      client.from('pagos').insert({
+        id_turno_jugador: dto.turno_jugador_id,
+        id_socio: socioId,
+        monto: remaining,
+        tipo: 'bonificacion',
+        observacion: dto.observacion
+          ? `Regalo por ${adminName}: ${dto.observacion}`
+          : `Regalo por ${adminName}`,
+      }),
+      client
+        .from('turno_jugadores')
+        .update({ estado_pago: 'bonificado' })
+        .eq('id', dto.turno_jugador_id),
+    ]);
 
-    if (insertError) {
-      this.logger.error('Error inserting gift payment', insertError);
+    if (insertResult.error) {
+      this.logger.error('Error inserting gift payment', insertResult.error);
       throw new InternalServerErrorException('Error al registrar el regalo');
     }
-
-    // Mark as bonificado
-    await client
-      .from('turno_jugadores')
-      .update({ estado_pago: 'bonificado' })
-      .eq('id', dto.turno_jugador_id);
 
     return { success: true };
   }
@@ -324,39 +354,85 @@ export class PagosService {
       throw new BadRequestException('No hay jugadores con deuda pendiente');
     }
 
-    let playersPaid = 0;
+    const playerIds = players.map((p: any) => p.id);
+    const userIds = players.map((p: any) => p.id_persona).filter(Boolean);
+
+    // Batch-fetch existing payments and socios in parallel (2 queries instead of N*3)
+    const [pagosResult, sociosResult] = await Promise.all([
+      client
+        .from('pagos')
+        .select('id_turno_jugador, monto')
+        .in('id_turno_jugador', playerIds)
+        .in('tipo', ['pago', 'bonificacion', 'devolucion']),
+      userIds.length > 0
+        ? client
+            .from('socios')
+            .select('id, id_usuario')
+            .in('id_usuario', userIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    // Build paid map
+    const paidMap = new Map<string, number>();
+    (pagosResult.data || []).forEach((p: any) => {
+      const current = paidMap.get(p.id_turno_jugador) || 0;
+      paidMap.set(p.id_turno_jugador, current + Number(p.monto));
+    });
+
+    // Build socio map
+    const socioMap = new Map<string, string>();
+    ((sociosResult as any).data || []).forEach((s: any) =>
+      socioMap.set(s.id_usuario, s.id),
+    );
+
+    // Calculate remaining debts and build batch insert
+    const pagosToInsert: any[] = [];
+    const paidPlayerIds: string[] = [];
     let totalPaid = 0;
 
     for (const player of players) {
-      const remaining = await this.computeRemainingDebt(player.id, client);
+      const montoGenerado = Number(player.monto_generado) || 0;
+      const alreadyPaid = paidMap.get(player.id) || 0;
+      const remaining = Math.max(0, montoGenerado - alreadyPaid);
+
       if (remaining <= 0) continue;
 
-      const socioId = await this.getSocioId(player.id_persona, client);
-
-      const { error: insertError } = await client.from('pagos').insert({
+      pagosToInsert.push({
         id_turno_jugador: player.id,
-        id_socio: socioId,
+        id_socio: player.id_persona ? socioMap.get(player.id_persona) || null : null,
         monto: remaining,
         tipo: 'pago',
         medio: dto.medio || null,
         observacion: `Pago total por ${adminName}`,
       });
 
-      if (insertError) {
-        this.logger.error(`Error paying player ${player.id}`, insertError);
-        continue;
-      }
-
-      await client
-        .from('turno_jugadores')
-        .update({ estado_pago: 'pagado' })
-        .eq('id', player.id);
-
-      playersPaid++;
+      paidPlayerIds.push(player.id);
       totalPaid += remaining;
     }
 
-    return { players_paid: playersPaid, total_paid: totalPaid };
+    if (pagosToInsert.length === 0) {
+      return { players_paid: 0, total_paid: 0 };
+    }
+
+    // Batch insert all payments + batch update all estados (2 queries instead of N*2)
+    const [insertResult, updateResult] = await Promise.all([
+      client.from('pagos').insert(pagosToInsert),
+      client
+        .from('turno_jugadores')
+        .update({ estado_pago: 'pagado' })
+        .in('id', paidPlayerIds),
+    ]);
+
+    if (insertResult.error) {
+      this.logger.error('Error batch-inserting payments', insertResult.error);
+      throw new InternalServerErrorException('Error al registrar pagos');
+    }
+
+    if (updateResult.error) {
+      this.logger.error('Error batch-updating estado_pago', updateResult.error);
+    }
+
+    return { players_paid: paidPlayerIds.length, total_paid: totalPaid };
   }
 
   async getMonthlyRevenue() {
