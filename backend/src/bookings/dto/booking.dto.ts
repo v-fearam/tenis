@@ -50,6 +50,14 @@ export class BookingQueryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   fecha_hasta?: string;
+
+  @IsOptional()
+  @IsString()
+  nombre?: string;
+
+  @IsOptional()
+  @IsString()
+  court_id?: string;
 }
 
 class PreviewPlayerDto {

@@ -27,8 +27,18 @@ export class PagosController {
   }
 
   @Get('unpaid')
-  findUnpaid(@Query() query: PaginationDto, @Req() req: any) {
-    return this.pagosService.findUnpaidTurnos(query, req.accessToken);
+  findUnpaid(
+    @Query() query: PaginationDto,
+    @Query('fecha_desde') fechaDesde: string,
+    @Query('fecha_hasta') fechaHasta: string,
+    @Req() req: any,
+  ) {
+    return this.pagosService.findUnpaidTurnos(
+      query,
+      req.accessToken,
+      fechaDesde,
+      fechaHasta,
+    );
   }
 
   @Post('pay')

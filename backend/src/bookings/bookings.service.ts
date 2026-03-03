@@ -42,6 +42,36 @@ export class BookingsService {
     );
   }
 
+  /**
+   * Search turno IDs where a player or organizer name matches.
+   * Uses the DB function for player search + ilike on nombre_organizador.
+   */
+  private async findTurnoIdsByName(
+    client: any,
+    nombre: string,
+  ): Promise<string[]> {
+    // Get turno IDs from player names (DB function)
+    const { data: playerTurnos, error: playerError } = await client.rpc(
+      'search_turno_ids_by_player_name',
+      { search_term: nombre },
+    );
+    if (playerError) throw playerError;
+
+    // Get turno IDs from organizer name
+    const { data: orgTurnos, error: orgError } = await client
+      .from('turnos')
+      .select('id')
+      .ilike('nombre_organizador', `%${nombre}%`);
+    if (orgError) throw orgError;
+
+    // Merge unique IDs
+    const ids = new Set<string>(
+      (playerTurnos || []).map((r: any) => r.search_turno_ids_by_player_name),
+    );
+    (orgTurnos || []).forEach((r: any) => ids.add(r.id));
+    return Array.from(ids);
+  }
+
   async create(
     createBookingDto: CreateBookingDto,
     creatorId: string | null,
@@ -190,6 +220,8 @@ export class BookingsService {
     status?: string,
     fechaDesde?: string,
     fechaHasta?: string,
+    nombre?: string,
+    courtId?: number,
   ): Promise<PaginatedResponseDto<any>> {
     const client = this.supabaseService.getOptionalClient(accessToken);
     const page = paginationDto.page || 1;
@@ -204,6 +236,15 @@ export class BookingsService {
     };
     const dbEstado = status ? estadoMap[status] : undefined;
 
+    // Pre-filter by name (searches both players and organizer)
+    let nameFilterIds: string[] | null = null;
+    if (nombre) {
+      nameFilterIds = await this.findTurnoIdsByName(client, nombre);
+      if (nameFilterIds.length === 0) {
+        return PaginatedResponseDto.create([], page, pageSize, 0);
+      }
+    }
+
     // Get total count
     let countQuery = client
       .from('turnos')
@@ -211,6 +252,8 @@ export class BookingsService {
     if (dbEstado) countQuery = countQuery.eq('estado', dbEstado);
     if (fechaDesde) countQuery = countQuery.gte('fecha', fechaDesde);
     if (fechaHasta) countQuery = countQuery.lte('fecha', fechaHasta);
+    if (courtId) countQuery = countQuery.eq('id_cancha', courtId);
+    if (nameFilterIds) countQuery = countQuery.in('id', nameFilterIds);
 
     const { count, error: countError } = await countQuery;
 
@@ -228,6 +271,8 @@ export class BookingsService {
     if (dbEstado) dataQuery = dataQuery.eq('estado', dbEstado);
     if (fechaDesde) dataQuery = dataQuery.gte('fecha', fechaDesde);
     if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
+    if (courtId) dataQuery = dataQuery.eq('id_cancha', courtId);
+    if (nameFilterIds) dataQuery = dataQuery.in('id', nameFilterIds);
 
     const { data, error } = await dataQuery;
 
@@ -240,6 +285,10 @@ export class BookingsService {
   async findActive(
     paginationDto: PaginationDto,
     accessToken: string,
+    nombre?: string,
+    courtId?: number,
+    fechaDesde?: string,
+    fechaHasta?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
     const page = paginationDto.page || 1;
@@ -255,31 +304,138 @@ export class BookingsService {
     });
     const today = dateFormatter.format(new Date());
 
+    // Pre-filter by name (searches both players and organizer)
+    let nameFilterIds: string[] | null = null;
+    if (nombre) {
+      nameFilterIds = await this.findTurnoIdsByName(client, nombre);
+      if (nameFilterIds.length === 0) {
+        return PaginatedResponseDto.create([], page, pageSize, 0);
+      }
+    }
+
     // Get total count for active bookings
-    const { count, error: countError } = await client
+    let countQuery = client
       .from('turnos')
       .select('*', { count: 'exact', head: true })
       .eq('estado', 'confirmado')
-      .gte('fecha', today);
+      .gte('fecha', fechaDesde || today);
+    if (fechaHasta) countQuery = countQuery.lte('fecha', fechaHasta);
+    if (courtId) countQuery = countQuery.eq('id_cancha', courtId);
+    if (nameFilterIds) countQuery = countQuery.in('id', nameFilterIds);
+
+    const { count, error: countError } = await countQuery;
 
     if (countError) throw countError;
 
     // Get paginated data
-    const { data, error } = await client
+    let dataQuery = client
       .from('turnos')
       .select(
         '*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
       )
       .eq('estado', 'confirmado')
-      .gte('fecha', today)
+      .gte('fecha', fechaDesde || today)
       .order('fecha', { ascending: true })
       .order('hora_inicio', { ascending: true })
       .range(offset, offset + pageSize - 1);
+    if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
+    if (courtId) dataQuery = dataQuery.eq('id_cancha', courtId);
+    if (nameFilterIds) dataQuery = dataQuery.in('id', nameFilterIds);
+
+    const { data, error } = await dataQuery;
 
     if (error) throw error;
 
     const mappedData = (data || []).map((b) => this.mapToFrontendStructure(b));
     return PaginatedResponseDto.create(mappedData, page, pageSize, count || 0);
+  }
+
+  async findCobrados(
+    paginationDto: PaginationDto,
+    accessToken: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
+    nombre?: string,
+    courtId?: number,
+  ): Promise<PaginatedResponseDto<any>> {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const page = paginationDto.page || 1;
+    const pageSize = paginationDto.pageSize || this.defaultPageSize;
+    const offset = (page - 1) * pageSize;
+
+    // Pre-filter by name (searches both players and organizer)
+    let nameFilterIds: string[] | null = null;
+    if (nombre) {
+      nameFilterIds = await this.findTurnoIdsByName(client, nombre);
+      if (nameFilterIds.length === 0) {
+        return PaginatedResponseDto.create([], page, pageSize, 0);
+      }
+    }
+
+    // First find turno IDs where ALL payable players are paid/bonificado
+    // Step 1: Get all confirmed turno IDs in date range
+    let turnoQuery = client
+      .from('turnos')
+      .select('id')
+      .eq('estado', 'confirmado');
+    if (fechaDesde) turnoQuery = turnoQuery.gte('fecha', fechaDesde);
+    if (fechaHasta) turnoQuery = turnoQuery.lte('fecha', fechaHasta);
+    if (nameFilterIds) turnoQuery = turnoQuery.in('id', nameFilterIds);
+    if (courtId) turnoQuery = turnoQuery.eq('id_cancha', courtId);
+
+    const { data: allTurnos, error: turnoError } = await turnoQuery;
+    if (turnoError) throw turnoError;
+
+    const allTurnoIds = (allTurnos || []).map((t: any) => t.id);
+    if (allTurnoIds.length === 0) {
+      return PaginatedResponseDto.create([], page, pageSize, 0);
+    }
+
+    // Step 2: Find turnos that have unpaid players (to exclude them)
+    const { data: unpaidRows, error: unpaidError } = await client
+      .from('turno_jugadores')
+      .select('id_turno')
+      .in('id_turno', allTurnoIds)
+      .eq('estado_pago', 'pendiente')
+      .gt('monto_generado', 0);
+
+    if (unpaidError) throw unpaidError;
+
+    const unpaidTurnoIds = new Set(
+      (unpaidRows || []).map((r: any) => r.id_turno),
+    );
+
+    // Cobrados = all confirmed turnos minus those with unpaid players
+    const cobradoIds = allTurnoIds.filter(
+      (id: string) => !unpaidTurnoIds.has(id),
+    );
+
+    if (cobradoIds.length === 0) {
+      return PaginatedResponseDto.create([], page, pageSize, 0);
+    }
+
+    // Step 3: Paginated fetch of cobrado turnos
+    const totalItems = cobradoIds.length;
+
+    const { data, error } = await client
+      .from('turnos')
+      .select(
+        '*, canchas(*), turno_jugadores(*, usuarios:id_persona(nombre)), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
+      )
+      .in('id', cobradoIds)
+      .order('fecha', { ascending: false })
+      .order('hora_inicio', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const mappedData = (data || []).map((b) => this.mapToFrontendStructure(b));
+    return PaginatedResponseDto.create(
+      mappedData,
+      page,
+      pageSize,
+      totalItems,
+    );
   }
 
   async confirm(bookingId: string, accessToken: string) {

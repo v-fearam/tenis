@@ -1,0 +1,274 @@
+.booking-row {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.booking-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+}
+
+.booking-row-left {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+}
+
+.booking-row-chevron {
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+}
+
+.court-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.court-badge--blue {
+    background: var(--brand-blue);
+}
+
+.court-badge--green {
+    background: #27AE60;
+}
+
+.court-badge-label {
+    font-size: 0.6rem;
+    font-weight: 900;
+    opacity: 0.8;
+}
+
+.court-badge-number {
+    font-size: 1.05rem;
+    font-weight: 900;
+}
+
+.booking-row-info {
+    min-width: 0;
+}
+
+.booking-row-datetime {
+    font-weight: 800;
+    font-size: 0.98rem;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.match-type-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.match-type-badge--single {
+    background: var(--brand-blue-pastel);
+    color: var(--brand-blue);
+}
+
+.match-type-badge--double {
+    background: rgba(142, 68, 173, 0.1);
+    color: #8E44AD;
+}
+
+.booking-row-requester {
+    font-size: 0.85rem;
+    color: var(--brand-blue);
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.booking-row-player-count {
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-left: 6px;
+}
+
+.booking-row-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.cost-badge {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #27AE60;
+    background: #D4EFDF;
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.action-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+}
+
+.action-btn--cancel {
+    color: #E74C3C;
+}
+
+.action-btn--confirm {
+    background: #27AE60;
+    color: white;
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Player details expanded section */
+.booking-row-details {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.player-detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.6);
+    margin-bottom: 4px;
+}
+
+.player-detail-name {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--text-main);
+}
+
+.player-detail-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tipo-persona-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+}
+
+.tipo-persona-badge--socio {
+    background: var(--brand-blue-pastel);
+    color: var(--brand-blue);
+}
+
+.tipo-persona-badge--other {
+    background: rgba(243, 156, 18, 0.1);
+    color: #D68910;
+}
+
+.abono-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(125, 60, 152, 0.1);
+    color: #7D3C98;
+}
+
+.player-cost {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #27AE60;
+}
+
+/* Cobrados specific */
+.cobrado-players-text {
+    font-size: 0.83rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cobrado-abono-badge {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #7D3C98;
+    background: rgba(125, 60, 152, 0.1);
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.cobrado-paid-badge {
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #1E8449;
+    background: #D4EFDF;
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.cobrado-status-badge {
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #27AE60;
+    background: rgba(39, 174, 96, 0.1);
+    padding: 4px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Empty states */
+.empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    opacity: 0.6;
+}
+
+.empty-state-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.empty-state-title {
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.empty-state-description {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}

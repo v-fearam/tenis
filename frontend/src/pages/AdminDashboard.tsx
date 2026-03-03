@@ -5,12 +5,14 @@ import {
     X, RefreshCw, Search, Trash2, AlertTriangle,
     DollarSign, ChevronDown, ChevronRight, Gift
 } from 'lucide-react';
+import BookingRow from '../components/BookingRow';
+import './AdminDashboard.css';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
 import { formatDateToDDMMYYYY, formatTimeToAR, todayAR } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 import { usePagination } from '../hooks/usePagination';
-import type { PaginatedResponse, PaginationMeta } from '../types/pagination';
+import type { PaginatedResponse } from '../types/pagination';
 import PaginationControls from '../components/PaginationControls';
 
 interface Booking {
@@ -62,12 +64,11 @@ export default function AdminDashboard() {
     // Cobrados tab state
     const [cobradosBookings, setCobradosBookings] = useState<Booking[]>([]);
     const [loadingCobrados, setLoadingCobrados] = useState(false);
-    const [cobradosPage, setCobradosPage] = useState(1);
-    const cobradosPageSize = paginationPending.pageSize;
+    const paginationCobrados = usePagination();
 
     const [filterCourt, setFilterCourt] = useState('');
     const [filterName, setFilterName] = useState('');
-    const [filterDay, setFilterDay] = useState('');
+    const [debouncedFilterName, setDebouncedFilterName] = useState('');
 
     // Purge state
     const [showPurgeModal, setShowPurgeModal] = useState(false);
@@ -104,6 +105,12 @@ export default function AdminDashboard() {
         onConfirm: () => void;
     } | null>(null);
 
+    // Processing state for confirm/cancel buttons
+    const [processingBooking, setProcessingBooking] = useState<string | null>(null);
+
+    // Expanded booking row state (for showing player details)
+    const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
+
     const [dateFrom, setDateFrom] = useState(() => {
         return todayAR();
     });
@@ -113,48 +120,21 @@ export default function AdminDashboard() {
         return new Date(inDate.getTime()).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
     });
 
-    const applyFilters = (list: Booking[]) => {
-        return list.filter(b => {
-            if (filterCourt && String(b.court_id) !== filterCourt) return false;
-            if (filterName) {
-                const q = filterName.toLowerCase();
-                const nameMatch = b.solicitante_nombre?.toLowerCase().includes(q);
-                const playerMatch = b.booking_players?.some((p: any) =>
-                    p.guest_name?.toLowerCase().includes(q)
-                );
-                if (!nameMatch && !playerMatch) return false;
-            }
-            if (filterDay) {
-                const bookingDate = b.start_time.split('T')[0];
-                if (bookingDate !== filterDay) return false;
-            }
-            return true;
-        });
-    };
-
-    const filteredPending = applyFilters(bookings);
-    const filteredActive = applyFilters(activeBookings);
+    // Debounce filter name for server-side search
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedFilterName(filterName), 300);
+        return () => clearTimeout(timer);
+    }, [filterName]);
 
     // Cobrados client-side pagination
-    const cobradosTotalPages = Math.max(1, Math.ceil(cobradosBookings.length / cobradosPageSize));
-    const cobradosSafePage = Math.min(cobradosPage, cobradosTotalPages);
-    const cobradosPaginated = cobradosBookings.slice((cobradosSafePage - 1) * cobradosPageSize, cobradosSafePage * cobradosPageSize);
-    const cobradosMeta: PaginationMeta = {
-        currentPage: cobradosSafePage,
-        pageSize: cobradosPageSize,
-        totalItems: cobradosBookings.length,
-        totalPages: cobradosTotalPages,
-        hasNextPage: cobradosSafePage < cobradosTotalPages,
-        hasPreviousPage: cobradosSafePage > 1,
-    };
 
-    // Extract unique courts from both lists for the filter dropdown
-    const allCourts = [...new Set([...bookings, ...activeBookings].map(b => b.court_id))].sort((a, b) => a - b);
-    const courtNames = [...new Set([...bookings, ...activeBookings].filter(b => b.court_name).map(b => ({ id: b.court_id, name: b.court_name! })))];
-    const getCourtLabel = (courtId: number) => {
-        const found = courtNames.find(c => c.id === courtId);
-        return found ? found.name : `Cancha ${courtId}`;
-    };
+    // Courts for filter dropdown
+    const [courts, setCourts] = useState<Array<{ id: number; name: string }>>([]);
+    useEffect(() => {
+        api.get<Array<{ id: number; name: string }>>('/bookings/courts')
+            .then(data => setCourts(data))
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -162,12 +142,15 @@ export default function AdminDashboard() {
                 const pendingParams = paginationPending.getQueryParams();
                 const activeParams = paginationActive.getQueryParams();
 
+                const filterParams = (debouncedFilterName ? `&nombre=${encodeURIComponent(debouncedFilterName)}` : '') +
+                    (filterCourt ? `&court_id=${filterCourt}` : '');
+
                 const [bookingsResponse, activeResponse, usersCount, revenueData] = await Promise.all([
                     api.get<PaginatedResponse<Booking>>(
-                        `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
+                        `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}${filterParams}`
                     ),
                     api.get<PaginatedResponse<Booking>>(
-                        `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}`
+                        `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}${filterParams}`
                     ),
                     api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 })),
                     api.get<{ total: number }>('/pagos/monthly-revenue').catch(() => ({ total: 0 }))
@@ -189,7 +172,7 @@ export default function AdminDashboard() {
         };
 
         fetchDashboardData();
-    }, [paginationPending.page, paginationActive.page, dateFrom, dateTo, refreshKey]);
+    }, [paginationPending.page, paginationActive.page, dateFrom, dateTo, debouncedFilterName, filterCourt, refreshKey]);
 
     // Fetch cobrados when that tab is active
     useEffect(() => {
@@ -197,16 +180,13 @@ export default function AdminDashboard() {
         const fetchCobrados = async () => {
             setLoadingCobrados(true);
             try {
-                const response = await api.get<PaginatedResponse<Booking>>(
-                    `/bookings?status=confirmado&page=1&pageSize=500&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
-                );
-                const paid = response.data.filter(b => {
-                    const payable = (b.booking_players || []).filter((p: any) => (p.monto_generado || 0) > 0);
-                    if (payable.length === 0) return true; // todos abono
-                    return payable.every((p: any) => p.estado_pago === 'pagado' || p.estado_pago === 'bonificado');
-                });
-                setCobradosBookings(paid);
-                setCobradosPage(1);
+                const params = paginationCobrados.getQueryParams();
+                let cobradosUrl = `/bookings/cobrados?page=${params.page}&pageSize=${params.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`;
+                if (debouncedFilterName) cobradosUrl += `&nombre=${encodeURIComponent(debouncedFilterName)}`;
+                if (filterCourt) cobradosUrl += `&court_id=${filterCourt}`;
+                const response = await api.get<PaginatedResponse<Booking>>(cobradosUrl);
+                setCobradosBookings(response.data);
+                paginationCobrados.setMeta(response.meta);
             } catch (err) {
                 console.error('Error fetching cobrados:', err);
             } finally {
@@ -214,7 +194,7 @@ export default function AdminDashboard() {
             }
         };
         fetchCobrados();
-    }, [activeView, dateFrom, dateTo, refreshKey]);
+    }, [activeView, paginationCobrados.page, dateFrom, dateTo, debouncedFilterName, filterCourt, refreshKey]);
 
     // Fetch unpaid turnos when payments tab is active
     useEffect(() => {
@@ -223,7 +203,7 @@ export default function AdminDashboard() {
             try {
                 const params = paginationPayments.getQueryParams();
                 const response = await api.get<PaginatedResponse<UnpaidTurno>>(
-                    `/pagos/unpaid?page=${params.page}&pageSize=${params.pageSize}`
+                    `/pagos/unpaid?page=${params.page}&pageSize=${params.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
                 );
                 setUnpaidTurnos(response.data);
                 paginationPayments.setMeta(response.meta);
@@ -236,26 +216,48 @@ export default function AdminDashboard() {
             }
         };
         fetchUnpaid();
-    }, [activeView, paginationPayments.page, refreshKey]);
+    }, [activeView, paginationPayments.page, dateFrom, dateTo, refreshKey]);
 
-    const handleConfirm = async (id: string) => {
-        try {
-            await api.patch(`/bookings/${id}/confirm`, {});
-            setToast({ message: 'Reserva confirmada.', type: 'success' });
-            setRefreshKey(prev => prev + 1);
-        } catch (err) {
-            setToast({ message: 'Error al confirmar reserva', type: 'error' });
-        }
+    const handleConfirm = (id: string, bookingLabel: string) => {
+        setConfirmModal({
+            title: 'Confirmar Reserva',
+            message: `¿Confirmar la reserva de ${bookingLabel}? Se generarán los registros de pago.`,
+            color: '#27AE60',
+            onConfirm: async () => {
+                setConfirmModal(null);
+                setProcessingBooking(id);
+                try {
+                    await api.patch(`/bookings/${id}/confirm`, {});
+                    setToast({ message: 'Reserva confirmada.', type: 'success' });
+                    setRefreshKey(prev => prev + 1);
+                } catch (err) {
+                    setToast({ message: 'Error al confirmar reserva', type: 'error' });
+                } finally {
+                    setProcessingBooking(null);
+                }
+            },
+        });
     };
 
-    const handleCancel = async (id: string) => {
-        try {
-            await api.patch(`/bookings/${id}/cancel`, {});
-            setToast({ message: 'Reserva cancelada.', type: 'success' });
-            setRefreshKey(prev => prev + 1);
-        } catch (err) {
-            setToast({ message: 'Error al cancelar reserva', type: 'error' });
-        }
+    const handleCancel = (id: string, bookingLabel: string) => {
+        setConfirmModal({
+            title: 'Cancelar Reserva',
+            message: `¿Cancelar la reserva de ${bookingLabel}? Si hay créditos de abono consumidos, se reembolsarán.`,
+            color: '#E74C3C',
+            onConfirm: async () => {
+                setConfirmModal(null);
+                setProcessingBooking(id);
+                try {
+                    await api.patch(`/bookings/${id}/cancel`, {});
+                    setToast({ message: 'Reserva cancelada.', type: 'success' });
+                    setRefreshKey(prev => prev + 1);
+                } catch (err) {
+                    setToast({ message: 'Error al cancelar reserva', type: 'error' });
+                } finally {
+                    setProcessingBooking(null);
+                }
+            },
+        });
     };
 
     const handlePayPlayer = async (turnoJugadorId: string, saldoPendiente: number) => {
@@ -582,48 +584,49 @@ export default function AdminDashboard() {
                         <button onClick={() => window.location.href = '/'} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem' }}>
                             Vista Socios
                         </button>
-                        {/* Export Modal */}
-                        {showExportModal && (
-                            <div style={{
-                                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-                            }} onClick={() => setShowExportModal(false)}>
-                                <div className="card glass animate-slide-up" style={{ maxWidth: '400px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
-                                    <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#27AE60', marginBottom: '16px' }}>
-                                        Exportar Turnos a Excel
-                                    </h2>
-                                    <div style={{ display: 'flex', gap: '12px', marginBottom: '18px', alignItems: 'center' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde</label>
-                                            <DateInputDDMMYYYY value={exportFrom} onChange={setExportFrom} compact />
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta</label>
-                                            <DateInputDDMMYYYY value={exportTo} onChange={setExportTo} compact />
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                                        <button
-                                            onClick={() => setShowExportModal(false)}
-                                            className="btn-secondary"
-                                            style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
-                                            disabled={exporting}
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={handleExport}
-                                            style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700', background: '#27AE60', color: 'white', border: 'none', cursor: 'pointer', opacity: exporting ? 0.7 : 1 }}
-                                            disabled={exporting}
-                                        >
-                                            {exporting ? 'Exportando...' : 'Exportar'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </header>
+
+                {/* Export Modal */}
+                {showExportModal && (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                    }} onClick={() => setShowExportModal(false)}>
+                        <div className="card glass animate-slide-up" style={{ maxWidth: '400px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+                            <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#27AE60', marginBottom: '16px' }}>
+                                Exportar Turnos a Excel
+                            </h2>
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '18px', alignItems: 'center' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde</label>
+                                    <DateInputDDMMYYYY value={exportFrom} onChange={setExportFrom} compact />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta</label>
+                                    <DateInputDDMMYYYY value={exportTo} onChange={setExportTo} compact />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowExportModal(false)}
+                                    className="btn-secondary"
+                                    style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
+                                    disabled={exporting}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleExport}
+                                    style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700', background: '#27AE60', color: 'white', border: 'none', cursor: 'pointer', opacity: exporting ? 0.7 : 1 }}
+                                    disabled={exporting}
+                                >
+                                    {exporting ? 'Exportando...' : 'Exportar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Grid of Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '14px' }}>
@@ -641,7 +644,7 @@ export default function AdminDashboard() {
                         pulse
                     />
                     <StatCard
-                        title="Socios Club"
+                        title="Usuarios Totales"
                         value={totalUsers}
                         icon={<Users size={22} />}
                         color="blue"
@@ -681,8 +684,7 @@ export default function AdminDashboard() {
                             </button>
                         ))}
                     </div>
-                    {(activeView === 'pending' || activeView === 'active' || activeView === 'cobrados') && (
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
                             <DateInputDDMMYYYY
                                 value={dateFrom}
@@ -696,7 +698,6 @@ export default function AdminDashboard() {
                                 compact
                             />
                         </div>
-                    )}
                 </div>
 
                 {/* Filter Bar - only for pending/active views */}
@@ -728,23 +729,13 @@ export default function AdminDashboard() {
                             }}
                         >
                             <option value="">Todas las canchas</option>
-                            {allCourts.map(c => (
-                                <option key={c} value={String(c)}>{getCourtLabel(c)}</option>
+                            {courts.map(c => (
+                                <option key={c.id} value={String(c.id)}>{c.name}</option>
                             ))}
                         </select>
-                        <input
-                            type="date"
-                            value={filterDay}
-                            onChange={e => setFilterDay(e.target.value)}
-                            style={{
-                                padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--border)',
-                                fontSize: '0.85rem', background: 'rgba(255,255,255,0.6)',
-                                color: filterDay ? 'var(--text-main)' : 'var(--text-muted)'
-                            }}
-                        />
-                        {(filterName || filterCourt || filterDay) && (
+                        {(filterName || filterCourt) && (
                             <button
-                                onClick={() => { setFilterName(''); setFilterCourt(''); setFilterDay(''); }}
+                                onClick={() => { setFilterName(''); setFilterCourt(''); }}
                                 style={{
                                     padding: '7px 12px', borderRadius: '10px', border: '1px solid var(--border)',
                                     fontSize: '0.8rem', background: 'rgba(231,76,60,0.08)', color: '#E74C3C',
@@ -776,14 +767,14 @@ export default function AdminDashboard() {
                                     : activeView === 'active'
                                         ? `${paginationActive.meta?.totalItems || 0} ACTIVOS`
                                         : activeView === 'cobrados'
-                                            ? `${cobradosBookings.length} COBRADOS`
-                                            : `${unpaidTurnos.length} CON DEUDA`
+                                            ? `${paginationCobrados.meta?.totalItems || cobradosBookings.length} COBRADOS`
+                                            : `${paginationPayments.meta?.totalItems || unpaidTurnos.length} CON DEUDA`
                                 }
                             </span>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {activeView === 'pending' && filteredPending.length === 0 && (
+                            {activeView === 'pending' && bookings.length === 0 && (
                                 <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
                                     <div style={{ background: '#D4EFDF', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#27AE60' }}>
                                         <Check size={30} />
@@ -793,7 +784,7 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
-                            {activeView === 'active' && filteredActive.length === 0 && (
+                            {activeView === 'active' && activeBookings.length === 0 && (
                                 <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
                                     <div style={{ background: 'var(--brand-blue-pastel)', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: 'var(--brand-blue)' }}>
                                         <Calendar size={30} />
@@ -813,114 +804,29 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
-                            {activeView === 'pending' && filteredPending.map(booking => (
-                                <div key={booking.id} className="hover-scale" style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    background: 'rgba(255,255,255,0.4)',
-                                    padding: '10px 16px',
-                                    borderRadius: '14px',
-                                    border: '1px solid var(--border)'
-                                }}>
-                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                                        <div style={{
-                                            width: '48px', height: '48px', borderRadius: '12px',
-                                            background: 'var(--brand-blue)', color: 'white',
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
-                                            <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                                {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
-                                                Solicita: {booking.solicitante_nombre}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {booking.costo > 0 && (
-                                            <span style={{
-                                                fontWeight: '800', fontSize: '0.9rem', color: '#27AE60',
-                                                background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                ${booking.costo.toLocaleString('es-AR')}
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={() => handleCancel(booking.id)}
-                                            className="btn-secondary"
-                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
-                                            title="Rechazar"
-                                        >
-                                            <X size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleConfirm(booking.id)}
-                                            className="btn-primary"
-                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#27AE60', color: 'white', border: 'none' }}
-                                            title="Aprobar"
-                                        >
-                                            <Check size={18} />
-                                        </button>
-                                    </div>
-                                </div>
+                            {activeView === 'pending' && bookings.map(booking => (
+                                <BookingRow
+                                    key={booking.id}
+                                    booking={booking}
+                                    variant="pending"
+                                    isExpanded={expandedBooking === booking.id}
+                                    onToggleExpand={() => setExpandedBooking(expandedBooking === booking.id ? null : booking.id)}
+                                    onConfirm={handleConfirm}
+                                    onCancel={handleCancel}
+                                    isProcessing={processingBooking === booking.id}
+                                />
                             ))}
 
-                            {activeView === 'active' && filteredActive.map(booking => (
-                                <div key={booking.id} className="hover-scale" style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    background: 'rgba(255,255,255,0.4)',
-                                    padding: '10px 16px',
-                                    borderRadius: '14px',
-                                    border: '1px solid var(--border)'
-                                }}>
-                                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                                        <div style={{
-                                            width: '48px', height: '48px', borderRadius: '12px',
-                                            background: 'var(--brand-blue)', color: 'white',
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-                                        }}>
-                                            <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
-                                            <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
-                                        </div>
-                                        <div>
-                                            <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                                {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
-                                            </div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--brand-blue)', fontWeight: '700', marginTop: '2px' }}>
-                                                Solicita: {booking.solicitante_nombre}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {booking.costo > 0 && (
-                                            <span style={{
-                                                fontWeight: '800', fontSize: '0.9rem', color: '#27AE60',
-                                                background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                ${booking.costo.toLocaleString('es-AR')}
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={() => handleCancel(booking.id)}
-                                            className="btn-secondary"
-                                            style={{ width: '38px', height: '38px', borderRadius: '10px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#E74C3C' }}
-                                            title="Cancelar"
-                                        >
-                                            <X size={18} />
-                                        </button>
-                                    </div>
-                                </div>
+                            {activeView === 'active' && activeBookings.map(booking => (
+                                <BookingRow
+                                    key={booking.id}
+                                    booking={booking}
+                                    variant="active"
+                                    isExpanded={expandedBooking === booking.id}
+                                    onToggleExpand={() => setExpandedBooking(expandedBooking === booking.id ? null : booking.id)}
+                                    onCancel={handleCancel}
+                                    isProcessing={processingBooking === booking.id}
+                                />
                             ))}
 
                             {/* Cobrados View */}
@@ -940,67 +846,15 @@ export default function AdminDashboard() {
                                 </div>
                             )}
 
-                            {activeView === 'cobrados' && !loadingCobrados && cobradosPaginated.map(booking => {
-                                const players: any[] = booking.booking_players || [];
-                                const allAbono = players.every((p: any) => (p.monto_generado || 0) === 0);
-                                const jugadores = players.map((p: any) => p.nombre || p.guest_name || 'Invitado').join(', ');
-                                return (
-                                    <div key={booking.id} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        background: 'rgba(255,255,255,0.4)',
-                                        padding: '10px 16px',
-                                        borderRadius: '14px',
-                                        border: '1px solid var(--border)'
-                                    }}>
-                                        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                                            <div style={{
-                                                width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
-                                                background: '#27AE60', color: 'white',
-                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
-                                                <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
-                                            </div>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
-                                                    {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
-                                                </div>
-                                                <div style={{ fontSize: '0.83rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {jugadores || booking.solicitante_nombre}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                                            {allAbono ? (
-                                                <span style={{
-                                                    fontWeight: '700', fontSize: '0.8rem', color: '#7D3C98',
-                                                    background: 'rgba(125,60,152,0.1)', padding: '4px 10px', borderRadius: '8px',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    Abono
-                                                </span>
-                                            ) : (
-                                                <span style={{
-                                                    fontWeight: '800', fontSize: '0.9rem', color: '#1E8449',
-                                                    background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    ${booking.costo.toLocaleString('es-AR')}
-                                                </span>
-                                            )}
-                                            <span style={{
-                                                fontWeight: '700', fontSize: '0.8rem', color: '#27AE60',
-                                                background: 'rgba(39,174,96,0.1)', padding: '4px 10px', borderRadius: '8px',
-                                                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px'
-                                            }}>
-                                                <Check size={13} /> Cobrado
-                                            </span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                            {activeView === 'cobrados' && !loadingCobrados && cobradosBookings.map(booking => (
+                                <BookingRow
+                                    key={booking.id}
+                                    booking={booking}
+                                    variant="cobrados"
+                                    isExpanded={false}
+                                    onToggleExpand={() => {}}
+                                />
+                            ))}
 
                             {/* Cobranzas (Payments) View */}
                             {activeView === 'payments' && unpaidTurnos.map(turno => {
@@ -1016,6 +870,9 @@ export default function AdminDashboard() {
                                         <div
                                             onClick={() => setExpandedTurno(isExpanded ? null : turno.turno_id)}
                                             className="hover-scale"
+                                            role="button"
+                                            tabIndex={0}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedTurno(isExpanded ? null : turno.turno_id); } }}
                                             style={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
@@ -1033,7 +890,7 @@ export default function AdminDashboard() {
                                                     background: 'var(--brand-blue)', color: 'white',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
                                                 }}>
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>CANCHA</span>
                                                     <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{turno.court_id}</span>
                                                 </div>
                                                 <div>
@@ -1192,7 +1049,7 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* Pagination Controls */}
-                        {activeView === 'pending' && filteredPending.length > 0 && (
+                        {activeView === 'pending' && bookings.length > 0 && (
                             <PaginationControls
                                 meta={paginationPending.meta}
                                 onPageChange={paginationPending.goToPage}
@@ -1203,7 +1060,7 @@ export default function AdminDashboard() {
                             />
                         )}
 
-                        {activeView === 'active' && filteredActive.length > 0 && (
+                        {activeView === 'active' && activeBookings.length > 0 && (
                             <PaginationControls
                                 meta={paginationActive.meta}
                                 onPageChange={paginationActive.goToPage}
@@ -1225,14 +1082,14 @@ export default function AdminDashboard() {
                             />
                         )}
 
-                        {activeView === 'cobrados' && cobradosBookings.length > cobradosPageSize && (
+                        {activeView === 'cobrados' && cobradosBookings.length > 0 && (
                             <PaginationControls
-                                meta={cobradosMeta}
-                                onPageChange={setCobradosPage}
-                                onNext={() => setCobradosPage(p => Math.min(p + 1, cobradosTotalPages))}
-                                onPrevious={() => setCobradosPage(p => Math.max(p - 1, 1))}
-                                onFirst={() => setCobradosPage(1)}
-                                onLast={() => setCobradosPage(cobradosTotalPages)}
+                                meta={paginationCobrados.meta}
+                                onPageChange={paginationCobrados.goToPage}
+                                onNext={paginationCobrados.nextPage}
+                                onPrevious={paginationCobrados.previousPage}
+                                onFirst={paginationCobrados.firstPage}
+                                onLast={paginationCobrados.lastPage}
                             />
                         )}
                     </div>

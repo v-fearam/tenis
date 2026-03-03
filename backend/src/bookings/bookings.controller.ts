@@ -23,8 +23,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RecaptchaService } from '../common/recaptcha.service';
-import { PaginationDto } from '../common/dto';
-
 @Controller('bookings')
 export class BookingsController {
   constructor(
@@ -61,6 +59,8 @@ export class BookingsController {
       query.status,
       query.fecha_desde,
       query.fecha_hasta,
+      query.nombre,
+      query.court_id ? parseInt(query.court_id, 10) : undefined,
     );
   }
 
@@ -77,11 +77,32 @@ export class BookingsController {
     return this.bookingsService.findAllCourts(req?.accessToken);
   }
 
+  @Get('cobrados')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin')
+  findCobrados(@Query() query: BookingQueryDto, @Req() req: any) {
+    return this.bookingsService.findCobrados(
+      query,
+      req.accessToken,
+      query.fecha_desde,
+      query.fecha_hasta,
+      query.nombre,
+      query.court_id ? parseInt(query.court_id, 10) : undefined,
+    );
+  }
+
   @Get('active')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
-  findActive(@Query() paginationDto: PaginationDto, @Req() req: any) {
-    return this.bookingsService.findActive(paginationDto, req.accessToken);
+  findActive(@Query() query: BookingQueryDto, @Req() req: any) {
+    return this.bookingsService.findActive(
+      query,
+      req.accessToken,
+      query.nombre,
+      query.court_id ? parseInt(query.court_id, 10) : undefined,
+      query.fecha_desde,
+      query.fecha_hasta,
+    );
   }
 
   @Patch(':id/confirm')

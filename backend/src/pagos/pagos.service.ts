@@ -28,6 +28,8 @@ export class PagosService {
   async findUnpaidTurnos(
     paginationDto: PaginationDto,
     accessToken: string,
+    fechaDesde?: string,
+    fechaHasta?: string,
   ): Promise<PaginatedResponseDto<any>> {
     const client = this.supabaseService.getClient();
     const page = paginationDto.page || 1;
@@ -53,20 +55,28 @@ export class PagosService {
     }
 
     // Steps 2+3: Count and fetch paginated turnos in parallel
+    let countQuery = client
+      .from('turnos')
+      .select('*', { count: 'exact', head: true })
+      .in('id', turnoIds)
+      .eq('estado', 'confirmado');
+    if (fechaDesde) countQuery = countQuery.gte('fecha', fechaDesde);
+    if (fechaHasta) countQuery = countQuery.lte('fecha', fechaHasta);
+
+    let dataQuery = client
+      .from('turnos')
+      .select('id, id_cancha, fecha, hora_inicio, canchas(nombre), turno_jugadores(id, id_persona, tipo_persona, nombre_invitado, uso_abono, monto_generado, estado_pago, usuarios:id_persona(nombre))')
+      .in('id', turnoIds)
+      .eq('estado', 'confirmado')
+      .order('fecha', { ascending: false })
+      .order('hora_inicio', { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (fechaDesde) dataQuery = dataQuery.gte('fecha', fechaDesde);
+    if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
+
     const [countResult, turnosResult] = await Promise.all([
-      client
-        .from('turnos')
-        .select('*', { count: 'exact', head: true })
-        .in('id', turnoIds)
-        .eq('estado', 'confirmado'),
-      client
-        .from('turnos')
-        .select('id, id_cancha, fecha, hora_inicio, canchas(nombre), turno_jugadores(id, id_persona, tipo_persona, nombre_invitado, uso_abono, monto_generado, estado_pago, usuarios:id_persona(nombre))')
-        .in('id', turnoIds)
-        .eq('estado', 'confirmado')
-        .order('fecha', { ascending: false })
-        .order('hora_inicio', { ascending: false })
-        .range(offset, offset + pageSize - 1),
+      countQuery,
+      dataQuery,
     ]);
 
     if (countResult.error) {
