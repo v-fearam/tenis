@@ -65,9 +65,8 @@ export class BookingsService {
     if (orgError) throw orgError;
 
     // Merge unique IDs
-    const ids = new Set<string>(
-      (playerTurnos || []).map((r: any) => r.search_turno_ids_by_player_name),
-    );
+    // playerTurnos is a flat array of UUID strings (PostgREST returns SETOF scalars as plain arrays)
+    const ids = new Set<string>(playerTurnos || []);
     (orgTurnos || []).forEach((r: any) => ids.add(r.id));
     return Array.from(ids);
   }
