@@ -10,7 +10,7 @@ import { Toast, type ToastType } from '../components/Toast';
 import { formatDateToDDMMYYYY, formatTimeToAR, todayAR } from '../lib/dateUtils';
 import DateInputDDMMYYYY from '../components/DateInputDDMMYYYY';
 import { usePagination } from '../hooks/usePagination';
-import type { PaginatedResponse } from '../types/pagination';
+import type { PaginatedResponse, PaginationMeta } from '../types/pagination';
 import PaginationControls from '../components/PaginationControls';
 
 interface Booking {
@@ -52,12 +52,18 @@ export default function AdminDashboard() {
     const [totalUsers, setTotalUsers] = useState(0);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-    const [activeView, setActiveView] = useState<'pending' | 'active' | 'payments'>('pending');
+    const [activeView, setActiveView] = useState<'pending' | 'active' | 'payments' | 'cobrados'>('pending');
 
     const [refreshKey, setRefreshKey] = useState(0);
     const paginationPending = usePagination();
     const paginationActive = usePagination();
     const paginationPayments = usePagination();
+
+    // Cobrados tab state
+    const [cobradosBookings, setCobradosBookings] = useState<Booking[]>([]);
+    const [loadingCobrados, setLoadingCobrados] = useState(false);
+    const [cobradosPage, setCobradosPage] = useState(1);
+    const cobradosPageSize = paginationPending.pageSize;
 
     const [filterCourt, setFilterCourt] = useState('');
     const [filterName, setFilterName] = useState('');
@@ -129,6 +135,19 @@ export default function AdminDashboard() {
     const filteredPending = applyFilters(bookings);
     const filteredActive = applyFilters(activeBookings);
 
+    // Cobrados client-side pagination
+    const cobradosTotalPages = Math.max(1, Math.ceil(cobradosBookings.length / cobradosPageSize));
+    const cobradosSafePage = Math.min(cobradosPage, cobradosTotalPages);
+    const cobradosPaginated = cobradosBookings.slice((cobradosSafePage - 1) * cobradosPageSize, cobradosSafePage * cobradosPageSize);
+    const cobradosMeta: PaginationMeta = {
+        currentPage: cobradosSafePage,
+        pageSize: cobradosPageSize,
+        totalItems: cobradosBookings.length,
+        totalPages: cobradosTotalPages,
+        hasNextPage: cobradosSafePage < cobradosTotalPages,
+        hasPreviousPage: cobradosSafePage > 1,
+    };
+
     // Extract unique courts from both lists for the filter dropdown
     const allCourts = [...new Set([...bookings, ...activeBookings].map(b => b.court_id))].sort((a, b) => a - b);
     const courtNames = [...new Set([...bookings, ...activeBookings].filter(b => b.court_name).map(b => ({ id: b.court_id, name: b.court_name! })))];
@@ -171,6 +190,31 @@ export default function AdminDashboard() {
 
         fetchDashboardData();
     }, [paginationPending.page, paginationActive.page, dateFrom, dateTo, refreshKey]);
+
+    // Fetch cobrados when that tab is active
+    useEffect(() => {
+        if (activeView !== 'cobrados') return;
+        const fetchCobrados = async () => {
+            setLoadingCobrados(true);
+            try {
+                const response = await api.get<PaginatedResponse<Booking>>(
+                    `/bookings?status=confirmado&page=1&pageSize=500&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}`
+                );
+                const paid = response.data.filter(b => {
+                    const payable = (b.booking_players || []).filter((p: any) => (p.monto_generado || 0) > 0);
+                    if (payable.length === 0) return true; // todos abono
+                    return payable.every((p: any) => p.estado_pago === 'pagado' || p.estado_pago === 'bonificado');
+                });
+                setCobradosBookings(paid);
+                setCobradosPage(1);
+            } catch (err) {
+                console.error('Error fetching cobrados:', err);
+            } finally {
+                setLoadingCobrados(false);
+            }
+        };
+        fetchCobrados();
+    }, [activeView, dateFrom, dateTo, refreshKey]);
 
     // Fetch unpaid turnos when payments tab is active
     useEffect(() => {
@@ -618,7 +662,7 @@ export default function AdminDashboard() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                        {(['pending', 'active', 'payments'] as const).map(view => (
+                        {(['pending', 'active', 'payments', 'cobrados'] as const).map(view => (
                             <button
                                 key={view}
                                 onClick={() => setActiveView(view)}
@@ -633,11 +677,11 @@ export default function AdminDashboard() {
                                     cursor: 'pointer'
                                 }}
                             >
-                                {view === 'pending' ? 'Pendientes' : view === 'active' ? 'Activos' : 'Cobranzas'}
+                                {view === 'pending' ? 'Pendientes' : view === 'active' ? 'Activos' : view === 'payments' ? 'Cobranzas' : 'Cobrados'}
                             </button>
                         ))}
                     </div>
-                    {activeView !== 'payments' && (
+                    {(activeView === 'pending' || activeView === 'active' || activeView === 'cobrados') && (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
                             <DateInputDDMMYYYY
@@ -717,13 +761,13 @@ export default function AdminDashboard() {
                     <div className="card glass" style={{ padding: '22px', minHeight: '480px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'var(--text-main)' }}>
-                                {activeView === 'pending' ? 'Centro de Aprobaciones' : activeView === 'active' ? 'Turnos Activos' : 'Cobranzas'}
+                                {activeView === 'pending' ? 'Centro de Aprobaciones' : activeView === 'active' ? 'Turnos Activos' : activeView === 'cobrados' ? 'Turnos Cobrados' : 'Cobranzas'}
                             </h2>
                             <span
                                 className="badge"
                                 style={{
-                                    background: activeView === 'pending' ? 'var(--clay-orange-pastel)' : activeView === 'payments' ? 'rgba(39, 174, 96, 0.1)' : 'var(--brand-blue-pastel)',
-                                    color: activeView === 'pending' ? 'var(--clay-orange)' : activeView === 'payments' ? '#27AE60' : 'var(--brand-blue)',
+                                    background: activeView === 'pending' ? 'var(--clay-orange-pastel)' : activeView === 'payments' ? 'rgba(39, 174, 96, 0.1)' : activeView === 'cobrados' ? 'rgba(39, 174, 96, 0.15)' : 'var(--brand-blue-pastel)',
+                                    color: activeView === 'pending' ? 'var(--clay-orange)' : activeView === 'payments' ? '#27AE60' : activeView === 'cobrados' ? '#1E8449' : 'var(--brand-blue)',
                                     fontWeight: '800'
                                 }}
                             >
@@ -731,7 +775,9 @@ export default function AdminDashboard() {
                                     ? `${paginationPending.meta?.totalItems || 0} PENDIENTES`
                                     : activeView === 'active'
                                         ? `${paginationActive.meta?.totalItems || 0} ACTIVOS`
-                                        : `${unpaidTurnos.length} CON DEUDA`
+                                        : activeView === 'cobrados'
+                                            ? `${cobradosBookings.length} COBRADOS`
+                                            : `${unpaidTurnos.length} CON DEUDA`
                                 }
                             </span>
                         </div>
@@ -876,6 +922,85 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
                             ))}
+
+                            {/* Cobrados View */}
+                            {activeView === 'cobrados' && loadingCobrados && (
+                                <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
+                                    <p style={{ fontWeight: '700', color: 'var(--text-muted)' }}>Cargando...</p>
+                                </div>
+                            )}
+
+                            {activeView === 'cobrados' && !loadingCobrados && cobradosBookings.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '80px 20px', opacity: 0.6 }}>
+                                    <div style={{ background: '#D4EFDF', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: '#27AE60' }}>
+                                        <DollarSign size={30} />
+                                    </div>
+                                    <p style={{ fontWeight: '700', color: 'var(--text-main)' }}>Sin turnos cobrados</p>
+                                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>No hay turnos con pago completo en el período seleccionado.</p>
+                                </div>
+                            )}
+
+                            {activeView === 'cobrados' && !loadingCobrados && cobradosPaginated.map(booking => {
+                                const players: any[] = booking.booking_players || [];
+                                const allAbono = players.every((p: any) => (p.monto_generado || 0) === 0);
+                                const jugadores = players.map((p: any) => p.nombre || p.guest_name || 'Invitado').join(', ');
+                                return (
+                                    <div key={booking.id} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        background: 'rgba(255,255,255,0.4)',
+                                        padding: '10px 16px',
+                                        borderRadius: '14px',
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                width: '48px', height: '48px', borderRadius: '12px', flexShrink: 0,
+                                                background: '#27AE60', color: 'white',
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <span style={{ fontSize: '0.6rem', fontWeight: '900', opacity: 0.8 }}>COURT</span>
+                                                <span style={{ fontSize: '1.05rem', fontWeight: '900' }}>{booking.court_id}</span>
+                                            </div>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontWeight: '800', fontSize: '0.98rem', color: 'var(--text-main)' }}>
+                                                    {formatDateToDDMMYYYY(booking.start_time)} • {formatTimeToAR(booking.start_time)} hs
+                                                </div>
+                                                <div style={{ fontSize: '0.83rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {jugadores || booking.solicitante_nombre}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                                            {allAbono ? (
+                                                <span style={{
+                                                    fontWeight: '700', fontSize: '0.8rem', color: '#7D3C98',
+                                                    background: 'rgba(125,60,152,0.1)', padding: '4px 10px', borderRadius: '8px',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    Abono
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    fontWeight: '800', fontSize: '0.9rem', color: '#1E8449',
+                                                    background: '#D4EFDF', padding: '4px 10px', borderRadius: '8px',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    ${booking.costo.toLocaleString('es-AR')}
+                                                </span>
+                                            )}
+                                            <span style={{
+                                                fontWeight: '700', fontSize: '0.8rem', color: '#27AE60',
+                                                background: 'rgba(39,174,96,0.1)', padding: '4px 10px', borderRadius: '8px',
+                                                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px'
+                                            }}>
+                                                <Check size={13} /> Cobrado
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
 
                             {/* Cobranzas (Payments) View */}
                             {activeView === 'payments' && unpaidTurnos.map(turno => {
@@ -1097,6 +1222,17 @@ export default function AdminDashboard() {
                                 onPrevious={paginationPayments.previousPage}
                                 onFirst={paginationPayments.firstPage}
                                 onLast={paginationPayments.lastPage}
+                            />
+                        )}
+
+                        {activeView === 'cobrados' && cobradosBookings.length > cobradosPageSize && (
+                            <PaginationControls
+                                meta={cobradosMeta}
+                                onPageChange={setCobradosPage}
+                                onNext={() => setCobradosPage(p => Math.min(p + 1, cobradosTotalPages))}
+                                onPrevious={() => setCobradosPage(p => Math.max(p - 1, 1))}
+                                onFirst={() => setCobradosPage(1)}
+                                onLast={() => setCobradosPage(cobradosTotalPages)}
                             />
                         )}
                     </div>
