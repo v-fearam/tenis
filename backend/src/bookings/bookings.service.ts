@@ -220,7 +220,7 @@ export class BookingsService {
     let dataQuery = client
       .from('turnos')
       .select(
-        '*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
+        '*, canchas(*), turno_jugadores(*, usuarios:id_persona(nombre)), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
       )
       .order('fecha', { ascending: false })
       .order('hora_inicio', { ascending: false })
@@ -458,9 +458,11 @@ export class BookingsService {
         id: p.id,
         user_id: p.id_persona,
         guest_name: p.nombre_invitado,
+        nombre: p.usuarios?.nombre || p.nombre_invitado || 'Invitado',
         tipo_persona: p.tipo_persona,
         uso_abono: p.uso_abono || false,
         monto_generado: p.monto_generado ? Number(p.monto_generado) : 0,
+        estado_pago: p.estado_pago || null,
       })),
       courts: b.canchas,
       solicitante_nombre: b.solicitante?.nombre || b.nombre_organizador || 'Desconocido',

@@ -310,14 +310,32 @@ export default function AdminDashboard() {
             const response = await api.get<PaginatedResponse<Booking>>(
                 `/bookings?status=confirmado&page=1&pageSize=9999&fecha_desde=${exportFrom}&fecha_hasta=${exportTo}`
             );
-            const data = response.data.map(b => ({
-                Fecha: formatDateToDDMMYYYY(b.start_time),
-                Hora: formatTimeToAR(b.start_time),
-                Cancha: b.court_name || `Cancha ${b.court_id}`,
-                Solicitante: b.solicitante_nombre || '',
-                Estado: b.status,
-                Costo: b.costo,
-            }));
+            const data = response.data.map(b => {
+                const players: any[] = b.booking_players || [];
+                const jugadores = players.map((p: any) => p.nombre || p.guest_name || 'Invitado').join(', ');
+
+                // Determine payment status from players with monto_generado > 0
+                const payablePlayers = players.filter((p: any) => (p.monto_generado || 0) > 0);
+                let estadoPago: string;
+                if (payablePlayers.length === 0) {
+                    estadoPago = 'Pagado (abono)';
+                } else {
+                    const paid = payablePlayers.filter((p: any) => p.estado_pago === 'pagado' || p.estado_pago === 'bonificado').length;
+                    if (paid === 0) estadoPago = 'Sin pagar';
+                    else if (paid === payablePlayers.length) estadoPago = 'Pagado total';
+                    else estadoPago = 'Parcial';
+                }
+
+                return {
+                    Fecha: formatDateToDDMMYYYY(b.start_time),
+                    Hora: formatTimeToAR(b.start_time),
+                    Cancha: b.court_name || `Cancha ${b.court_id}`,
+                    Solicitante: b.solicitante_nombre || '',
+                    Jugadores: jugadores,
+                    Costo: b.costo,
+                    'Estado Pago': estadoPago,
+                };
+            });
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Turnos');
