@@ -1032,14 +1032,20 @@ export class BookingsService {
       ? usuario.socios[0]
       : usuario.socios;
 
+    // A user is a socio if they have a socio record OR their role is socio/admin
+    const isSocio = !!socio || usuario.rol === 'socio' || usuario.rol === 'admin';
+
+    if (!isSocio) {
+      return prices.price_no_socio;
+    }
+
     // tipo_abono is a relation to tipos_abono: { nombre: "Abono Libre" }
     const tipoAbonoNombre = socio?.tipo_abono?.nombre;
 
     if (tipoAbonoNombre === 'Abono Libre') return prices.price_socio_libre;
-    if (tipoAbonoNombre === 'Abono x Partidos')
-      return prices.price_socio_partidos;
-    if (usuario.rol === 'socio') return prices.price_socio_sin_abono;
 
-    return prices.price_no_socio;
+    // For any other socio (regardless of specific abono name or role), 
+    // the fallback is the member price
+    return prices.price_socio_sin_abono;
   }
 }
