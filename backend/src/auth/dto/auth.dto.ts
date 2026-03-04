@@ -33,3 +33,9 @@ export class RefreshTokenDto {
   @IsString()
   refresh_token: string;
 }
+
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}

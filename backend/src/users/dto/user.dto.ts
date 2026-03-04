@@ -28,6 +28,15 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(['activo', 'inactivo'])
   estado?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  force_password_change?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
 }
 
 export class UpdateSocioDto {
@@ -62,4 +71,14 @@ export class CreateUserDto {
   @IsOptional()
   @IsIn(['admin', 'socio', 'no-socio'])
   rol?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  force_password_change?: boolean;
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
 }

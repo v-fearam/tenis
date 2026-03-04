@@ -158,6 +158,7 @@ export class UsersService {
           dni: createUserDto.dni,
           telefono: createUserDto.telefono,
           rol: createUserDto.rol || 'socio',
+          force_password_change: createUserDto.force_password_change || false,
         })
         .eq('id', authData.user.id);
     }
@@ -182,11 +183,28 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto, accessToken: string) {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const adminClient = this.supabaseService.getClient();
+
+    // Sync Auth metadata if role is updated, or update password if provided
+    if (updateUserDto.rol || updateUserDto.password) {
+      const authUpdate: any = {};
+      if (updateUserDto.rol) authUpdate.user_metadata = { rol: updateUserDto.rol };
+      if (updateUserDto.password) authUpdate.password = updateUserDto.password;
+
+      const { error: authError } = await adminClient.auth.admin.updateUserById(
+        id,
+        authUpdate,
+      );
+      if (authError) throw authError;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...dbUpdateData } = updateUserDto;
 
     const { data, error } = await client
       .from('usuarios')
       .update({
-        ...updateUserDto,
+        ...dbUpdateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

@@ -1,17 +1,12 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  Logger,
-} from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { LoginDto, RegisterDto, ChangePasswordDto } from './dto/auth.dto';
+import { UnauthorizedException, ConflictException, Logger, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(private readonly supabaseService: SupabaseService) { }
 
   async login(loginDto: LoginDto) {
     const client = this.supabaseService.getClient();
@@ -154,5 +149,29 @@ export class AuthService {
     if (error) throw error;
 
     return usuario;
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const client = this.supabaseService.getClient();
+
+    // 1. Update password in Supabase Auth
+    const { error: authError } = await client.auth.admin.updateUserById(userId, {
+      password: changePasswordDto.newPassword,
+    });
+
+    if (authError) throw authError;
+
+    // 2. Reset force_password_change flag in usuarios table
+    const { error: dbError } = await client
+      .from('usuarios')
+      .update({
+        force_password_change: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (dbError) throw dbError;
+
+    return { message: 'Contraseña actualizada correctamente' };
   }
 }

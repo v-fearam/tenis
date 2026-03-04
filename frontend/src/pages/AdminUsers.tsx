@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
-import { Search, Plus, Edit2, X, UserCheck, UserX } from 'lucide-react';
+import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -17,6 +17,7 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   const pagination = usePagination();
@@ -29,6 +30,7 @@ export default function AdminUsers() {
     dni: '',
     telefono: '',
     rol: 'socio' as UserRole,
+    force_password_change: false,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -59,7 +61,8 @@ export default function AdminUsers() {
     : users;
 
   const openCreateModal = () => {
-    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio' });
+    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio', force_password_change: false });
+    setShowPassword(false);
     setEditingUser(null);
     setFormError('');
     setModalMode('create');
@@ -73,6 +76,7 @@ export default function AdminUsers() {
       dni: user.dni || '',
       telefono: user.telefono || '',
       rol: user.rol,
+      force_password_change: user.force_password_change || false,
     });
     setEditingUser(user);
     setFormError('');
@@ -93,10 +97,10 @@ export default function AdminUsers() {
     try {
       if (modalMode === 'create') {
         const payload: CreateUserPayload = {
-          nombre: formData.nombre,
           email: formData.email,
           password: formData.password,
           rol: formData.rol,
+          force_password_change: formData.force_password_change,
         };
         if (formData.dni) payload.dni = formData.dni;
         if (formData.telefono) payload.telefono = formData.telefono;
@@ -107,6 +111,10 @@ export default function AdminUsers() {
         if (formData.dni !== (editingUser.dni || '')) payload.dni = formData.dni;
         if (formData.telefono !== (editingUser.telefono || '')) payload.telefono = formData.telefono;
         if (formData.rol !== editingUser.rol) payload.rol = formData.rol;
+        if (formData.force_password_change !== editingUser.force_password_change) {
+          payload.force_password_change = formData.force_password_change;
+        }
+        if (formData.password) payload.password = formData.password;
         await api.patch(`/users/${editingUser.id}`, payload);
       }
       closeModal();
@@ -346,30 +354,64 @@ export default function AdminUsers() {
                 </FormField>
 
                 {modalMode === 'create' && (
-                  <>
-                    <FormField label="Email" required>
+                  <FormField label="Email" required>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      style={inputStyle}
+                      placeholder="usuario@email.com"
+                    />
+                  </FormField>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <FormField label={modalMode === 'create' ? 'Contraseña' : 'Nueva Contraseña (opcional)'} required={modalMode === 'create'}>
+                    <div style={{ position: 'relative' }}>
                       <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                        style={inputStyle}
-                        placeholder="usuario@email.com"
-                      />
-                    </FormField>
-                    <FormField label="Contraseña" required>
-                      <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required
+                        required={modalMode === 'create'}
                         minLength={6}
-                        style={inputStyle}
-                        placeholder="Mínimo 6 caracteres"
+                        style={{ ...inputStyle, paddingRight: '40px' }}
+                        placeholder={modalMode === 'create' ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiar'}
                       />
-                    </FormField>
-                  </>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          position: 'absolute',
+                          right: '8px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '4px'
+                        }}
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </FormField>
+
+                  <FormField label="Rol" required>
+                    <select
+                      value={formData.rol}
+                      onChange={(e) => setFormData({ ...formData, rol: e.target.value as UserRole })}
+                      style={inputStyle}
+                    >
+                      <option value="socio">Socio</option>
+                      <option value="no-socio">No Socio</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </FormField>
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <FormField label="DNI">
@@ -403,6 +445,19 @@ export default function AdminUsers() {
                     <option value="admin">Administrador</option>
                   </select>
                 </FormField>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+                  <input
+                    type="checkbox"
+                    id="force_password_change"
+                    checked={formData.force_password_change}
+                    onChange={(e) => setFormData({ ...formData, force_password_change: e.target.checked })}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="force_password_change" style={{ fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-main)' }}>
+                    Forzar cambio de contraseña al próximo ingreso
+                  </label>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '28px', justifyContent: 'flex-end' }}>

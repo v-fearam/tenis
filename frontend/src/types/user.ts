@@ -9,6 +9,7 @@ export interface Usuario {
   email: string;
   rol: UserRole;
   estado: EstadoUsuario;
+  force_password_change: boolean;
   created_at: string;
   socios?: Socio[];
 }
@@ -34,6 +35,7 @@ export interface CreateUserPayload {
   dni?: string;
   telefono?: string;
   rol?: UserRole;
+  force_password_change?: boolean;
 }
 
 export interface UpdateUserPayload {
@@ -42,4 +44,6 @@ export interface UpdateUserPayload {
   telefono?: string;
   rol?: UserRole;
   estado?: EstadoUsuario;
+  force_password_change?: boolean;
+  password?: string;
 }
