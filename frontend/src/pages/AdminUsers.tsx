@@ -341,59 +341,50 @@ export default function AdminUsers() {
             )}
 
             <form onSubmit={handleSave}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <FormField label="Nombre" required>
-                  <input
-                    type="text"
-                    value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    required
-                    style={inputStyle}
-                    placeholder="Nombre completo"
-                  />
-                </FormField>
-
-                {modalMode === 'create' && (
-                  <FormField label="Email" required>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div className="grid-2-cols">
+                  <FormField label="Nombre" required>
                     <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      type="text"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                       required
                       style={inputStyle}
-                      placeholder="usuario@email.com"
+                      placeholder="Nombre completo"
                     />
                   </FormField>
-                )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  {modalMode === 'create' && (
+                    <FormField label="Email" required>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                        style={inputStyle}
+                        placeholder="usuario@email.com"
+                      />
+                    </FormField>
+                  )}
+                </div>
+
+                <div className="grid-2-cols">
                   <FormField label={modalMode === 'create' ? 'Contraseña' : 'Nueva Contraseña (opcional)'} required={modalMode === 'create'}>
-                    <div style={{ position: 'relative' }}>
+                    <div className="input-with-icon">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         required={modalMode === 'create'}
                         minLength={6}
-                        style={{ ...inputStyle, paddingRight: '40px' }}
+                        style={{ ...inputStyle, paddingRight: '45px' }}
                         placeholder={modalMode === 'create' ? 'Mínimo 6 caracteres' : 'Dejar vacío para no cambiar'}
                       />
                       <button
                         type="button"
+                        className="input-icon-btn"
                         onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                          position: 'absolute',
-                          right: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: 'var(--text-muted)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '4px'
-                        }}
+                        aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                       >
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
@@ -413,7 +404,7 @@ export default function AdminUsers() {
                   </FormField>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="grid-2-cols">
                   <FormField label="DNI">
                     <input
                       type="text"
@@ -423,6 +414,7 @@ export default function AdminUsers() {
                       placeholder="12345678"
                     />
                   </FormField>
+
                   <FormField label="Teléfono">
                     <input
                       type="text"
@@ -434,37 +426,34 @@ export default function AdminUsers() {
                   </FormField>
                 </div>
 
-                <FormField label="Rol" required>
-                  <select
-                    value={formData.rol}
-                    onChange={(e) => setFormData({ ...formData, rol: e.target.value as UserRole })}
-                    style={inputStyle}
-                  >
-                    <option value="socio">Socio</option>
-                    <option value="no-socio">No Socio</option>
-                    <option value="admin">Administrador</option>
-                  </select>
-                </FormField>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
+                <label className="checkbox-group">
                   <input
                     type="checkbox"
+                    className="checkbox-input"
                     id="force_password_change"
                     checked={formData.force_password_change}
                     onChange={(e) => setFormData({ ...formData, force_password_change: e.target.checked })}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
-                  <label htmlFor="force_password_change" style={{ fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-main)' }}>
+                  <span className="checkbox-label">
                     Forzar cambio de contraseña al próximo ingreso
-                  </label>
-                </div>
+                  </span>
+                </label>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '28px', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn-secondary" onClick={closeModal}>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeModal}
+                  disabled={saving}
+                >
                   Cancelar
                 </button>
-                <button type="submit" className="btn-primary" disabled={saving} style={{ opacity: saving ? 0.7 : 1 }}>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={saving}
+                >
                   {saving ? 'Guardando...' : modalMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios'}
                 </button>
               </div>

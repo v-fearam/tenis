@@ -76,7 +76,7 @@ export default function Login() {
 
           <div style={{ marginBottom: '24px', textAlign: 'left' }}>
             <label className="form-label">Contraseña</label>
-            <div style={{ position: 'relative' }}>
+            <div className="input-with-icon">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
@@ -89,20 +89,9 @@ export default function Login() {
               />
               <button
                 type="button"
+                className="input-icon-btn"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '4px'
-                }}
+                aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>

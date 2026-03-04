@@ -95,7 +95,7 @@ export default function ChangePassword() {
 
                     <div style={{ marginBottom: '16px', textAlign: 'left' }}>
                         <label className="form-label">Nueva Contraseña</label>
-                        <div style={{ position: 'relative' }}>
+                        <div className="input-with-icon">
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 value={newPassword}
@@ -107,8 +107,9 @@ export default function ChangePassword() {
                             />
                             <button
                                 type="button"
+                                className="input-icon-btn"
                                 onClick={() => setShowPassword(!showPassword)}
-                                style={eyeBtnStyle}
+                                aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
@@ -117,7 +118,7 @@ export default function ChangePassword() {
 
                     <div style={{ marginBottom: '24px', textAlign: 'left' }}>
                         <label className="form-label">Confirmar Nueva Contraseña</label>
-                        <div style={{ position: 'relative' }}>
+                        <div className="input-with-icon">
                             <input
                                 type={showConfirmPassword ? 'text' : 'password'}
                                 value={confirmPassword}
@@ -129,8 +130,9 @@ export default function ChangePassword() {
                             />
                             <button
                                 type="button"
+                                className="input-icon-btn"
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                style={eyeBtnStyle}
+                                aria-label={showConfirmPassword ? "Ocultar contraseña" : "Ver contraseña"}
                             >
                                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
@@ -161,17 +163,3 @@ export default function ChangePassword() {
         </div>
     );
 }
-
-const eyeBtnStyle: React.CSSProperties = {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    display: 'flex',
-    alignItems: 'center',
-    padding: '4px'
-};
