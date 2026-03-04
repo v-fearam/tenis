@@ -97,6 +97,7 @@ export default function AdminUsers() {
     try {
       if (modalMode === 'create') {
         const payload: CreateUserPayload = {
+          nombre: formData.nombre,
           email: formData.email,
           password: formData.password,
           rol: formData.rol,
