@@ -8,7 +8,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { PagosService } from './pagos.service';
-import { RegisterPaymentDto, GiftPaymentDto, PayAllDto } from './dto/pagos.dto';
+import { RegisterPaymentDto, GiftPaymentDto, PayAllDto, UnpaidQueryDto } from './dto/pagos.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -19,7 +19,7 @@ import { PaginationDto } from '../common/dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
 export class PagosController {
-  constructor(private readonly pagosService: PagosService) {}
+  constructor(private readonly pagosService: PagosService) { }
 
   @Get('monthly-revenue')
   getMonthlyRevenue() {
@@ -28,16 +28,14 @@ export class PagosController {
 
   @Get('unpaid')
   findUnpaid(
-    @Query() query: PaginationDto,
-    @Query('fecha_desde') fechaDesde: string,
-    @Query('fecha_hasta') fechaHasta: string,
+    @Query() query: UnpaidQueryDto,
     @Req() req: any,
   ) {
     return this.pagosService.findUnpaidTurnos(
       query,
       req.accessToken,
-      fechaDesde,
-      fechaHasta,
+      query.fecha_desde,
+      query.fecha_hasta,
     );
   }
 

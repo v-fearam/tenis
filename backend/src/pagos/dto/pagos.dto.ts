@@ -1,4 +1,15 @@
-import { IsUUID, IsNumber, IsPositive, IsOptional, IsString } from 'class-validator';
+import { IsUUID, IsNumber, IsPositive, IsOptional, IsString, IsDateString } from 'class-validator';
+import { PaginationDto } from '../../common/dto';
+
+export class UnpaidQueryDto extends PaginationDto {
+  @IsOptional()
+  @IsDateString()
+  fecha_desde?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fecha_hasta?: string;
+}
 
 export class RegisterPaymentDto {
   @IsUUID()
