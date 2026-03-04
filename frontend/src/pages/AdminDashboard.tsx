@@ -133,7 +133,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         api.get<Array<{ id: number; name: string }>>('/bookings/courts')
             .then(data => setCourts(data))
-            .catch(() => {});
+            .catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
     const handleConfirm = (id: string, bookingLabel: string) => {
         setConfirmModal({
             title: 'Confirmar Reserva',
-            message: `¿Confirmar la reserva de ${bookingLabel}? Se generarán los registros de pago.`,
+            message: `¿Confirmar la reserva de ${bookingLabel}? Se generará el registro de deuda.`,
             color: '#27AE60',
             onConfirm: async () => {
                 setConfirmModal(null);
@@ -685,19 +685,19 @@ export default function AdminDashboard() {
                         ))}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
-                            <DateInputDDMMYYYY
-                                value={dateFrom}
-                                onChange={setDateFrom}
-                                compact
-                            />
-                            <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta:</label>
-                            <DateInputDDMMYYYY
-                                value={dateTo}
-                                onChange={setDateTo}
-                                compact
-                            />
-                        </div>
+                        <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Desde:</label>
+                        <DateInputDDMMYYYY
+                            value={dateFrom}
+                            onChange={setDateFrom}
+                            compact
+                        />
+                        <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Hasta:</label>
+                        <DateInputDDMMYYYY
+                            value={dateTo}
+                            onChange={setDateTo}
+                            compact
+                        />
+                    </div>
                 </div>
 
                 {/* Filter Bar - only for pending/active views */}
@@ -852,7 +852,7 @@ export default function AdminDashboard() {
                                     booking={booking}
                                     variant="cobrados"
                                     isExpanded={false}
-                                    onToggleExpand={() => {}}
+                                    onToggleExpand={() => { }}
                                 />
                             ))}
 
