@@ -151,14 +151,18 @@ export class UsersService {
     // Update additional fields — we need a workaround since we don't have a user token yet
     // The admin.createUser doesn't give us a session, so we use the default client
     // and rely on the trigger having already created the row
-    if (createUserDto.dni || createUserDto.telefono) {
+    const rol = createUserDto.rol || 'socio';
+    // No-socios always have ok_club = false
+    const ok_club = rol === 'no-socio' ? false : (createUserDto.ok_club ?? true);
+    if (createUserDto.dni || createUserDto.telefono || rol === 'no-socio') {
       await client
         .from('usuarios')
         .update({
           dni: createUserDto.dni,
           telefono: createUserDto.telefono,
-          rol: createUserDto.rol || 'socio',
+          rol,
           force_password_change: createUserDto.force_password_change || false,
+          ok_club,
         })
         .eq('id', authData.user.id);
     }
@@ -200,6 +204,11 @@ export class UsersService {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...dbUpdateData } = updateUserDto;
+
+    // No-socios always have ok_club = false
+    if (dbUpdateData.rol === 'no-socio') {
+      dbUpdateData.ok_club = false;
+    }
 
     const { data, error } = await client
       .from('usuarios')

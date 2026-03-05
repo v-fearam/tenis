@@ -410,7 +410,10 @@ export default function AdminUsers() {
                   <FormField label="Rol" required>
                     <select
                       value={formData.rol}
-                      onChange={(e) => setFormData({ ...formData, rol: e.target.value as UserRole })}
+                      onChange={(e) => {
+                        const newRol = e.target.value as UserRole;
+                        setFormData({ ...formData, rol: newRol, ok_club: newRol === 'no-socio' ? false : formData.ok_club });
+                      }}
                       style={inputStyle}
                     >
                       <option value="socio">Socio</option>
@@ -455,16 +458,22 @@ export default function AdminUsers() {
                   </span>
                 </label>
 
-                <label className="checkbox-group">
+                <label className="checkbox-group" style={{ opacity: formData.rol === 'no-socio' ? 0.5 : 1 }}>
                   <input
                     type="checkbox"
                     className="checkbox-input"
                     id="ok_club"
                     checked={formData.ok_club}
+                    disabled={formData.rol === 'no-socio'}
                     onChange={(e) => setFormData({ ...formData, ok_club: e.target.checked })}
                   />
                   <span className="checkbox-label">
                     Ok club (Situación regularizada)
+                    {formData.rol === 'no-socio' && (
+                      <span style={{ color: '#E74C3C', fontSize: '0.75rem', marginLeft: '6px' }}>
+                        — No aplica para No Socios
+                      </span>
+                    )}
                   </span>
                 </label>
               </div>
