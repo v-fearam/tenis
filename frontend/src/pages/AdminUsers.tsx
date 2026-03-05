@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
-import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff } from 'lucide-react';
+import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -31,6 +31,7 @@ export default function AdminUsers() {
     telefono: '',
     rol: 'socio' as UserRole,
     force_password_change: false,
+    ok_club: true,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -61,7 +62,7 @@ export default function AdminUsers() {
     : users;
 
   const openCreateModal = () => {
-    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio', force_password_change: false });
+    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio', force_password_change: false, ok_club: true });
     setShowPassword(false);
     setEditingUser(null);
     setFormError('');
@@ -77,6 +78,7 @@ export default function AdminUsers() {
       telefono: user.telefono || '',
       rol: user.rol,
       force_password_change: user.force_password_change || false,
+      ok_club: user.ok_club ?? true,
     });
     setEditingUser(user);
     setFormError('');
@@ -102,6 +104,7 @@ export default function AdminUsers() {
           password: formData.password,
           rol: formData.rol,
           force_password_change: formData.force_password_change,
+          ok_club: formData.ok_club,
         };
         if (formData.dni) payload.dni = formData.dni;
         if (formData.telefono) payload.telefono = formData.telefono;
@@ -114,6 +117,9 @@ export default function AdminUsers() {
         if (formData.rol !== editingUser.rol) payload.rol = formData.rol;
         if (formData.force_password_change !== editingUser.force_password_change) {
           payload.force_password_change = formData.force_password_change;
+        }
+        if (formData.ok_club !== editingUser.ok_club) {
+          payload.ok_club = formData.ok_club;
         }
         if (formData.password) payload.password = formData.password;
         await api.patch(`/users/${editingUser.id}`, payload);
@@ -240,7 +246,16 @@ export default function AdminUsers() {
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={tdStyle}>{user.nombre || '—'}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {user.nombre || '—'}
+                      {user.ok_club === false && (
+                        <span title="Pendiente de regularizar con el Club">
+                          <AlertCircle size={14} style={{ color: '#E74C3C' }} />
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ ...tdStyle, color: 'var(--text-muted)', fontSize: '0.875rem' }}>{user.email}</td>
                   <td style={tdStyle}>{user.dni || '—'}</td>
                   <td style={tdStyle}>{user.telefono || '—'}</td>
@@ -437,6 +452,19 @@ export default function AdminUsers() {
                   />
                   <span className="checkbox-label">
                     Forzar cambio de contraseña al próximo ingreso
+                  </span>
+                </label>
+
+                <label className="checkbox-group">
+                  <input
+                    type="checkbox"
+                    className="checkbox-input"
+                    id="ok_club"
+                    checked={formData.ok_club}
+                    onChange={(e) => setFormData({ ...formData, ok_club: e.target.checked })}
+                  />
+                  <span className="checkbox-label">
+                    Ok club (Situación regularizada)
                   </span>
                 </label>
               </div>

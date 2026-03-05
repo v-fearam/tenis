@@ -32,6 +32,7 @@ interface DashboardData {
         color: string | null;
     } | null;
     isSocio: boolean;
+    ok_club: boolean;
 }
 
 export default function Reserve() {
@@ -200,6 +201,24 @@ export default function Reserve() {
                     )}
                 </div>
             </header>
+
+            {/* Warning for "Pase por secretaria" */}
+            {user && dashboard && dashboard.ok_club === false && (
+                <div style={{
+                    background: '#FADBD8',
+                    color: '#E74C3C',
+                    padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: '10px',
+                    textAlign: 'center',
+                    fontWeight: '700',
+                    border: '1px solid #E74C3C33',
+                    fontSize: '0.9rem',
+                    animation: 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+                }}>
+                    Pase por la secretaria del Club a regularizar su situación
+                </div>
+            )}
 
             {/* Abono / Membership Card */}
             {user && dashboard && (

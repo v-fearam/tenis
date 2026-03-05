@@ -10,6 +10,7 @@ export interface Usuario {
   rol: UserRole;
   estado: EstadoUsuario;
   force_password_change: boolean;
+  ok_club: boolean;
   created_at: string;
   socios?: Socio[];
 }
@@ -36,6 +37,7 @@ export interface CreateUserPayload {
   telefono?: string;
   rol?: UserRole;
   force_password_change?: boolean;
+  ok_club?: boolean;
 }
 
 export interface UpdateUserPayload {
@@ -45,5 +47,6 @@ export interface UpdateUserPayload {
   rol?: UserRole;
   estado?: EstadoUsuario;
   force_password_change?: boolean;
+  ok_club?: boolean;
   password?: string;
 }

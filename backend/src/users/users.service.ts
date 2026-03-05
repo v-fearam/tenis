@@ -326,7 +326,8 @@ export class UsersService {
         nro_socio,
         id_tipo_abono,
         creditos_disponibles,
-        tipos_abono:id_tipo_abono (id, nombre, creditos, precio, color)
+        tipos_abono:id_tipo_abono (id, nombre, creditos, precio, color),
+        usuarios:id_usuario (ok_club)
       `,
       )
       .eq('id_usuario', userId)
@@ -351,11 +352,13 @@ export class UsersService {
 
     // Determine membership status for the user
     const isSocio = !!socio;
+    const okClub = (socio as any)?.usuarios?.ok_club ?? true;
 
     return {
       nextMatch,
       abono,
       isSocio,
+      ok_club: okClub,
     };
   }
 }

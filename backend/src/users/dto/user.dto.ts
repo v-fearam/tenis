@@ -34,6 +34,10 @@ export class UpdateUserDto {
   force_password_change?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  ok_club?: boolean;
+
+  @IsOptional()
   @IsString()
   @MinLength(6)
   password?: string;
@@ -75,6 +79,10 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   force_password_change?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  ok_club?: boolean;
 }
 
 export class ChangePasswordDto {
