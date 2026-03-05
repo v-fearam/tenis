@@ -12,7 +12,7 @@ export class AbonosService {
   constructor(
     private readonly supabaseService: SupabaseService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   // --- TYPES CRUD ---
 
@@ -149,7 +149,7 @@ export class AbonosService {
     return data;
   }
 
-  async consumeCredit(socioId: string, accessToken?: string): Promise<boolean> {
+  async consumeCredit(socioId: string, accessToken?: string, amount: number = 1): Promise<boolean> {
     const client = accessToken
       ? this.supabaseService.getAuthenticatedClient(accessToken)
       : this.supabaseService.getClient();
@@ -164,7 +164,7 @@ export class AbonosService {
       error ||
       !socio ||
       !socio.id_tipo_abono ||
-      socio.creditos_disponibles <= 0
+      Number(socio.creditos_disponibles) < amount
     ) {
       return false;
     }
@@ -172,7 +172,7 @@ export class AbonosService {
     const { error: updateError } = await client
       .from('socios')
       .update({
-        creditos_disponibles: socio.creditos_disponibles - 1,
+        creditos_disponibles: Number(socio.creditos_disponibles) - amount,
         updated_at: new Date().toISOString(),
       })
       .eq('id', socioId);

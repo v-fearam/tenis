@@ -46,13 +46,14 @@ Key logic in `bookings.service.ts`:
 1. **At creation** (`create()`): status `pending`, cost calculated immediately:
    - Prices from `config_sistema` table (keys: `precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`)
    - Each player's cost = `base_tariff / total_players` (proportional split)
-   - **Abono x Partidos**: uses 1 credit → $0 (if credits available), otherwise socio rate
+   - **Abono x Partidos**: consumes credits → $0 if credits available. **Credit consumption varies by match type**: singles = 1 credit, doubles = 0.5 credits. If credits exhausted, falls back to `precio_socio_sin_abono`
    - **Socio sin abono**: `precio_socio_sin_abono` rate
    - **No socio / Invitado**: `precio_no_socio` rate
-   - Abono credits consumed immediately. Per-player cost in `turno_jugadores.monto_generado`
+   - Abono credits consumed immediately. Per-player cost stored in `turno_jugadores.monto_generado`
+   - `creditos_disponibles` is `numeric(5,1)` — supports fractional values (e.g. 3.5)
 2. **At confirmation** (`confirm()`): admin confirms → generates `pagos` (debt records) from pre-calculated `monto_generado`
-3. **At cancellation** (`cancel()`): refunds abono credits for players with `uso_abono = true`
-4. **Cost preview** (`POST /api/bookings/preview`): estimates cost before submitting
+3. **At cancellation** (`cancel()`): refunds abono credits for players with `uso_abono = true` (refund amount matches match type: 0.5 for doubles, 1 for singles)
+4. **Cost preview** (`POST /api/bookings/preview`): estimates cost before submitting. Accepts optional `match_type` to calculate correct credit usage.
 
 Membership tiers: Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio. `config_sistema` is the single source of truth for pricing (keys normalized: lowercase, spaces → underscores).
 

@@ -30,7 +30,7 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 ### Bookings (`/api/bookings`)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/bookings/preview` | Public | Preview booking cost |
+| POST | `/bookings/preview` | Public | Preview booking cost (accepts `match_type`) |
 | POST | `/bookings` | OptionalJWT | Create booking (+ reCAPTCHA) |
 | GET | `/bookings` | Public | List bookings (filterable by status, fechas) |
 | GET | `/bookings/calendar?fecha=` | Public | Get bookings for calendar view |
@@ -72,7 +72,7 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/pagos/monthly-revenue` | Get monthly revenue |
-| GET | `/pagos/unpaid` | List unpaid turnos (paginated) |
+| GET | `/pagos/unpaid?page=&pageSize=&fecha_desde=&fecha_hasta=` | List unpaid turnos (paginated, filterable by date) |
 | POST | `/pagos/pay` | Register payment |
 | POST | `/pagos/gift` | Gift/bonify payment |
 | POST | `/pagos/pay-all` | Pay all debts for a turno |
@@ -109,7 +109,7 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 | nro_socio | int | auto-increment, unique |
 | activo | bool | default: true |
 | id_tipo_abono | uuid | FK → tipos_abono, nullable |
-| creditos_disponibles | int | default: 0 |
+| creditos_disponibles | numeric(5,1) | default: 0, supports fractional values (e.g. 3.5) |
 
 ### canchas (5 rows)
 | Column | Type | Notes |
@@ -169,7 +169,7 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 |--------|------|-------|
 | id | uuid | PK |
 | nombre | text | unique |
-| creditos | int | |
+| creditos | numeric(5,1) | supports fractional values |
 | precio | numeric | |
 | color | text | nullable |
 

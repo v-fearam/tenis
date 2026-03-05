@@ -191,9 +191,12 @@ export class BookingsService {
     }
 
     // Calculate cost and consume abono credits at creation time
+    // Credit amount: 1 for singles, 0.5 for doubles
+    const creditAmount = createBookingDto.type === 'double' ? 0.5 : 1;
     const costo = await this.calculateAndApplyCosts(
       insertedPlayers,
       client,
+      creditAmount,
     );
 
     // Update turno with calculated cost
@@ -467,7 +470,7 @@ export class BookingsService {
 
     const { data: booking, error: fetchError } = await client
       .from('turnos')
-      .select('id, estado')
+      .select('id, estado, tipo_partido')
       .eq('id', bookingId)
       .single();
 
@@ -493,9 +496,11 @@ export class BookingsService {
     this.logger.log(`Cancel refund: found ${playerIds.length} players with uso_abono=true for turno ${bookingId}`);
 
     if (playerIds.length > 0) {
+      // Refund amount: 0.5 for doubles, 1 for singles
+      const refundAmount = booking.tipo_partido === 'double' ? 0.5 : 1;
       const { data: refunded, error: refundError } = await client.rpc(
         'refund_abono_credits',
-        { p_user_ids: playerIds },
+        { p_user_ids: playerIds, p_amount: refundAmount },
       );
 
       if (refundError) {
@@ -702,6 +707,7 @@ export class BookingsService {
   private async calculateAndApplyCosts(
     players: any[],
     client: any,
+    creditAmount: number = 1,
   ): Promise<number> {
     const prices = await this.getPrices(client);
     const numPlayers = players.length;
@@ -743,7 +749,7 @@ export class BookingsService {
       // Try atomic credit consumption (single UPDATE with WHERE guard)
       let usoAbono = false;
       if (socio) {
-        usoAbono = await this.consumeCreditAtomic(socio.id, client);
+        usoAbono = await this.consumeCreditAtomic(socio.id, client, creditAmount);
       }
 
       if (usoAbono) {
@@ -798,15 +804,17 @@ export class BookingsService {
   }
 
   /**
-   * Atomically consume one abono credit using a conditional UPDATE.
-   * Avoids the read-then-write race condition of the original consumeCredit.
+   * Atomically consume abono credit using a conditional UPDATE.
+   * Amount is 1 for singles, 0.5 for doubles.
    */
   private async consumeCreditAtomic(
     socioId: string,
     client: any,
+    amount: number = 1,
   ): Promise<boolean> {
     const { data, error } = await client.rpc('consume_abono_credit', {
       p_socio_id: socioId,
+      p_amount: amount,
     });
 
     if (error) {
@@ -866,10 +874,13 @@ export class BookingsService {
 
   async previewCost(
     players: { user_id?: string; guest_name?: string }[],
+    matchType?: string,
   ) {
     const client = this.supabaseService.getClient();
     const prices = await this.getPrices(client);
     const numPlayers = players.length;
+    // Credit amount: 0.5 for doubles, 1 for singles
+    const creditAmount = matchType === 'double' ? 0.5 : 1;
 
     // Build player-like objects matching the format expected by calculatePlayerCostFromData
     const registeredPlayerIds = players
@@ -917,8 +928,8 @@ export class BookingsService {
       let usaAbono = false;
       let monto = 0;
 
-      // Check if socio has available abono credits
-      if (socio && socio.id_tipo_abono && socio.creditos_disponibles > 0) {
+      // Check if socio has enough abono credits for this match type
+      if (socio && socio.id_tipo_abono && Number(socio.creditos_disponibles) >= creditAmount) {
         usaAbono = true;
         monto = 0;
       } else {

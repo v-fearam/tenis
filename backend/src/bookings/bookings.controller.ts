@@ -28,11 +28,11 @@ export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,
     private readonly recaptchaService: RecaptchaService,
-  ) {}
+  ) { }
 
   @Post('preview')
   async preview(@Body() dto: PreviewBookingDto) {
-    return this.bookingsService.previewCost(dto.players);
+    return this.bookingsService.previewCost(dto.players, dto.match_type);
   }
 
   @Post()

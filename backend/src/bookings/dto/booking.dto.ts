@@ -76,6 +76,10 @@ export class PreviewBookingDto {
   @ValidateNested({ each: true })
   @Type(() => PreviewPlayerDto)
   players: PreviewPlayerDto[];
+
+  @IsOptional()
+  @IsEnum(MatchType)
+  match_type?: MatchType;
 }
 
 export class CreateBookingDto {

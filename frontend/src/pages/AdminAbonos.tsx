@@ -424,7 +424,7 @@ export default function AdminAbonos() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
                               <span>Disponibles</span>
                               <span style={{ fontWeight: '700' }}>
-                                {socio.creditos_disponibles}/{tipoAbono.creditos}
+                                {Number(socio.creditos_disponibles).toFixed(1)}/{Number(tipoAbono.creditos).toFixed(1)}
                               </span>
                             </div>
                             <div style={{ height: '6px', background: 'var(--border, #eee)', borderRadius: '3px', overflow: 'hidden' }}>

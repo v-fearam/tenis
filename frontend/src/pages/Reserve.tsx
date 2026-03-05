@@ -244,12 +244,12 @@ export default function Reserve() {
                                 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#27AE60' }}>Ilimitado</span>
                             ) : (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <CreditCard size={15} style={{ color: dashboard.abono.creditos_disponibles > 0 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
+                                    <CreditCard size={15} style={{ color: dashboard.abono.creditos_disponibles >= 0.5 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
                                     <span style={{
                                         fontSize: '0.85rem', fontWeight: '700',
-                                        color: dashboard.abono.creditos_disponibles > 0 ? 'var(--text-main)' : '#E74C3C',
+                                        color: dashboard.abono.creditos_disponibles >= 0.5 ? 'var(--text-main)' : '#E74C3C',
                                     }}>
-                                        {dashboard.abono.creditos_disponibles}/{dashboard.abono.creditos_totales}
+                                        {Number(dashboard.abono.creditos_disponibles).toFixed(1)}/{Number(dashboard.abono.creditos_totales).toFixed(1)}
                                     </span>
                                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>créditos</span>
                                 </div>

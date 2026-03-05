@@ -57,6 +57,7 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
             user_id: p.user_id || undefined,
             guest_name: p.guest_name || undefined,
           })),
+          match_type: matchType,
         }, { signal: abortController.signal });
         if (!abortController.signal.aborted) {
           setCostPreview(result);
