@@ -164,6 +164,43 @@ export class PagosService {
     return PaginatedResponseDto.create(filtered, page, pageSize, count || 0);
   }
 
+  /** Total pending debt across all confirmed turnos (for dashboard stat card) */
+  async getTotalUnpaid(): Promise<{ total: number }> {
+    const client = this.supabaseService.getClient();
+
+    // Get all pending players in confirmed turnos
+    const { data: pendingPlayers, error } = await client
+      .from('turno_jugadores')
+      .select('id, monto_generado, turnos!inner(estado)')
+      .eq('estado_pago', 'pendiente')
+      .gt('monto_generado', 0)
+      .eq('turnos.estado', 'confirmado');
+
+    if (error || !pendingPlayers || pendingPlayers.length === 0) {
+      return { total: 0 };
+    }
+
+    const playerIds = pendingPlayers.map((p: any) => p.id);
+
+    const { data: pagos } = await client
+      .from('pagos')
+      .select('id_turno_jugador, monto')
+      .in('id_turno_jugador', playerIds)
+      .in('tipo', ['pago', 'bonificacion', 'devolucion']);
+
+    const paidMap = new Map<string, number>();
+    (pagos || []).forEach((p: any) => {
+      paidMap.set(p.id_turno_jugador, (paidMap.get(p.id_turno_jugador) || 0) + Number(p.monto));
+    });
+
+    const total = pendingPlayers.reduce((sum: number, p: any) => {
+      const saldo = Math.max(0, Number(p.monto_generado) - (paidMap.get(p.id) || 0));
+      return sum + saldo;
+    }, 0);
+
+    return { total: Math.round(total * 100) / 100 };
+  }
+
   async registerPayment(
     dto: RegisterPaymentDto,
     adminName: string,

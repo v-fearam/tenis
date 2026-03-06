@@ -61,6 +61,11 @@ export class AbonosController {
 
   // --- CIERRE MENSUAL ---
 
+  @Get('cierre-pendiente')
+  getCierrePendiente() {
+    return this.abonosService.getCierrePendiente();
+  }
+
   @Post('cierre-mensual')
   ejecutarCierre(@Req() req: any) {
     return this.abonosService.ejecutarCierreMensual(

@@ -117,30 +117,56 @@ function StatCard({ label, value, bg, color, icon, trend, loading }: StatCardPro
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 
+const SERIES_DESC: Record<string, string> = {
+    'Turnos': 'Cobros de turnos registrados en efectivo',
+    'Abonos': 'Abonos activos al momento del cierre',
+    'Recurrentes': 'Pagos de turnos recurrentes cobrados',
+    'Socios c/abono': 'Cantidad de socios con abono asignado (eje derecho)',
+};
+
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload || !payload.length) return null;
-    const total = payload.reduce((s: number, p: any) => s + (Number(p.value) || 0), 0);
+    const bars = payload.filter((p: any) => p.type !== 'line');
+    const line = payload.find((p: any) => p.type === 'line');
+    const total = bars.reduce((s: number, p: any) => s + (Number(p.value) || 0), 0);
     return (
         <div style={{
             background: 'white', border: '1px solid var(--border)', borderRadius: 12,
-            padding: '12px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 180,
+            padding: '12px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', minWidth: 220,
         }}>
-            <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: 8, fontSize: '0.9rem' }}>{label}</div>
-            {payload.map((p: any) => (
-                p.type !== 'line' && (
-                    <div key={p.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: '0.82rem', marginBottom: 4 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.9rem' }}>{label}</div>
+                <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#7E57C2', background: '#EDE7F6', padding: '2px 7px', borderRadius: 20 }}>
+                    Cierre ejecutado
+                </span>
+            </div>
+            {bars.map((p: any) => (
+                <div key={p.name} style={{ marginBottom: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: '0.82rem' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)' }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.fill, display: 'inline-block' }} />
+                            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.fill, display: 'inline-block', flexShrink: 0 }} />
                             {p.name}
                         </span>
                         <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{fmt(p.value)}</span>
                     </div>
-                )
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', paddingLeft: 14, marginTop: 1 }}>
+                        {SERIES_DESC[p.name]}
+                    </div>
+                </div>
             ))}
             <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Total</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Total ingresado</span>
                 <span style={{ fontWeight: 900, color: 'var(--text-main)' }}>{fmt(total)}</span>
             </div>
+            {line && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#7E57C2' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 14, height: 2, background: '#9C27B0', display: 'inline-block', borderRadius: 2 }} />
+                        {line.name}
+                    </span>
+                    <span style={{ fontWeight: 700 }}>{line.value} socios</span>
+                </div>
+            )}
         </div>
     );
 }
@@ -216,7 +242,21 @@ export default function AdminFinance() {
                     </p>
                 </header>
 
-                {/* Stat Cards Row */}
+                {/* Stat Cards Row — MES ACTUAL */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        fontSize: '0.72rem', fontWeight: 800, color: '#1E8449',
+                        background: '#EAFAF1', border: '1px solid #A9DFBF',
+                        padding: '4px 10px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    }}>
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#27AE60', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                        Mes en curso
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Datos en tiempo real — aún no cerrado
+                    </span>
+                </div>
                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
                     <StatCard
                         label="Cobrado — Turnos"
@@ -256,17 +296,30 @@ export default function AdminFinance() {
                     />
                 </div>
 
-                {/* Chart Card */}
+                {/* Chart Card — HISTORIAL */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        fontSize: '0.72rem', fontWeight: 800, color: '#7E57C2',
+                        background: '#EDE7F6', border: '1px solid #CE93D8',
+                        padding: '4px 10px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    }}>
+                        Historial de cierres
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Solo meses con cierre ejecutado — el mes actual no aparece aquí
+                    </span>
+                </div>
                 <div style={{
                     background: 'white', border: '1px solid var(--border)',
                     borderRadius: 16, padding: '28px 28px 20px', marginBottom: 20,
                 }}>
                     <div style={{ marginBottom: 20 }}>
                         <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
-                            Ingresos históricos
+                            Ingresos por cierre mensual
                         </h2>
                         <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                            Por cierre mensual ejecutado · 3 segmentos: turnos, abonos, recurrentes
+                            Cada barra = un mes ya cerrado y archivado · Pasá el mouse sobre una barra para ver el detalle
                         </p>
                     </div>
 
@@ -326,7 +379,7 @@ export default function AdminFinance() {
                     )}
 
                     <p style={{ margin: '12px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'right' }}>
-                        Solo meses con cierre ejecutado. El mes corriente no aparece.
+                        Los valores se fijan al ejecutar el cierre mensual y no cambian retroactivamente.
                     </p>
                 </div>
 
@@ -362,23 +415,6 @@ export default function AdminFinance() {
                                     <div style={{ flex: composition.recurrentes, background: '#9C27B0' }} />
                                 </div>
                             </>
-                        )}
-                    </div>
-
-                    {/* Total mes actual */}
-                    <div style={{
-                        flex: 1, minWidth: 220,
-                        background: 'white', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px',
-                    }}>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                            Total cobrado — mes actual
-                        </div>
-                        {loadingSum ? (
-                            <Skeleton h={28} w="55%" />
-                        ) : (
-                            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
-                                {fmt(summary?.total_cobrado ?? 0)}
-                            </div>
                         )}
                     </div>
 

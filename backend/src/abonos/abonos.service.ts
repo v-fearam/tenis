@@ -201,12 +201,43 @@ export class AbonosService {
 
   // --- CIERRE MENSUAL ---
 
+  async getCierrePendiente() {
+    const client = this.supabaseService.getClient();
+    const tz = 'America/Argentina/Buenos_Aires';
+
+    const now = new Date();
+    // Previous month first day in AR timezone
+    const ar = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit' });
+    const [year, month] = ar.format(now).split('-').map(Number);
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const mesAnio = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+
+    const { data } = await client
+      .from('cierres_mensuales')
+      .select('id')
+      .eq('mes_anio', mesAnio)
+      .maybeSingle();
+
+    const mesNombre = new Date(`${mesAnio}T12:00:00`).toLocaleDateString('es-AR', {
+      month: 'long', year: 'numeric', timeZone: tz,
+    });
+
+    return { pendiente: !data, mes: mesNombre, mes_anio: mesAnio };
+  }
+
   async ejecutarCierreMensual(accessToken: string, adminUserId: string) {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
-    // 1. Determine current month (first day)
+    // 1. Determine the month being closed (= previous month) and the boundary dates
+    //    The cierre is always run at the start of the new month to close the previous one.
+    //    e.g. run on April 5 → closes March (mesAnio='2026-03-01', boundary='2026-04-01')
     const now = new Date();
-    const mesAnio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const firstDayCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const firstDayPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const mesAnio = `${firstDayPrevMonth.getFullYear()}-${String(firstDayPrevMonth.getMonth() + 1).padStart(2, '0')}-01`;
+    const mesAnioActual = `${firstDayCurrentMonth.getFullYear()}-${String(firstDayCurrentMonth.getMonth() + 1).padStart(2, '0')}-01`;
 
     // 2. Check for duplicate closing
     const { data: existing } = await client
@@ -221,7 +252,8 @@ export class AbonosService {
       );
     }
 
-    // 3. Compute abono revenue: all socios with id_tipo_abono assigned
+    // 3. Compute abono revenue: snapshot of socios with abono assigned right now
+    //    (these are the socios who had abono during the previous month, before reset)
     const { data: sociosConAbono, error: sociosError } = await client
       .from('socios')
       .select('id, id_tipo_abono, tipo_abono:tipos_abono(id, nombre, precio)')
@@ -253,16 +285,13 @@ export class AbonosService {
       }
     }
 
-    // 5. Compute turnos revenue: sum of effective payments (pago) in the month
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const nextMesAnio = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
-
+    // 5. Compute turnos revenue: payments collected during the previous month
     const { data: pagos, error: pagosError } = await client
       .from('pagos')
       .select('monto')
       .eq('tipo', 'pago')
       .gte('fecha', mesAnio)
-      .lt('fecha', nextMesAnio);
+      .lt('fecha', mesAnioActual);
 
     if (pagosError) throw pagosError;
 
@@ -271,13 +300,13 @@ export class AbonosService {
       0,
     );
 
-    // 5b. Compute recurrentes revenue: sum of payments in movimientos_recurrentes
+    // 5b. Compute recurrentes revenue: payments collected during the previous month
     const { data: pagosRecurrentes, error: recurrentesError } = await client
       .from('movimientos_recurrentes')
       .select('monto')
       .eq('tipo', 'pago')
       .gte('fecha', mesAnio)
-      .lt('fecha', nextMesAnio);
+      .lt('fecha', mesAnioActual);
 
     if (recurrentesError) throw recurrentesError;
 

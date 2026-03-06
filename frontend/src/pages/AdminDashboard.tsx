@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import {
     Check, Clock, Users, Calendar,
     X, RefreshCw, Search, Trash2, AlertTriangle,
-    DollarSign, ChevronDown, ChevronRight, Gift
+    DollarSign, ChevronDown, ChevronRight, Gift,
 } from 'lucide-react';
 import BookingRow from '../components/BookingRow';
 import './AdminDashboard.css';
@@ -77,6 +77,13 @@ export default function AdminDashboard() {
     const [purgeConfirmText, setPurgeConfirmText] = useState('');
     const [purgingTurnos, setPurgingTurnos] = useState(false);
 
+    // Cierre mensual state
+    const [showCierreModal, setShowCierreModal] = useState(false);
+    const [ejecutandoCierre, setEjecutandoCierre] = useState(false);
+    const [cierreConfirmText, setCierreConfirmText] = useState('');
+    const [cierrePendiente, setCierrePendiente] = useState<{ pendiente: boolean; mes: string } | null>(null);
+    const [cierreBannerDismissed, setCierreBannerDismissed] = useState(false);
+
     // Payments (Cobranzas) state
     const [unpaidTurnos, setUnpaidTurnos] = useState<UnpaidTurno[]>([]);
     const [expandedTurno, setExpandedTurno] = useState<string | null>(null);
@@ -143,6 +150,13 @@ export default function AdminDashboard() {
             .catch(() => { });
     }, []);
 
+    // Check previous month's cierre status (runs once on mount)
+    useEffect(() => {
+        api.get<{ pendiente: boolean; mes: string }>('/abonos/cierre-pendiente')
+            .then(data => setCierrePendiente(data))
+            .catch(() => { });
+    }, []);
+
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
@@ -152,7 +166,7 @@ export default function AdminDashboard() {
                 const filterParams = (debouncedFilterName ? `&nombre=${encodeURIComponent(debouncedFilterName)}` : '') +
                     (filterCourt ? `&court_id=${filterCourt}` : '');
 
-                const [bookingsResponse, activeResponse, usersCount, revenueData, recurrentesDeuda] = await Promise.all([
+                const [bookingsResponse, activeResponse, usersCount, revenueData, recurrentesDeuda, deudaTotalData] = await Promise.all([
                     api.get<PaginatedResponse<Booking>>(
                         `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}${filterParams}`
                     ),
@@ -162,6 +176,7 @@ export default function AdminDashboard() {
                     api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 })),
                     api.get<{ total: number }>('/pagos/monthly-revenue').catch(() => ({ total: 0 })),
                     api.get<{ deuda: number; comprometido: number }>('/turnos-recurrentes/deuda-total').catch(() => ({ deuda: 0, comprometido: 0 })),
+                    api.get<{ total: number }>('/pagos/deuda-total').catch(() => ({ total: 0 })),
                 ]);
 
                 setBookings(bookingsResponse.data);
@@ -173,6 +188,7 @@ export default function AdminDashboard() {
                 setTotalUsers(usersCount.count);
                 setMonthlyRevenue(revenueData.total);
                 setDeudaRecurrentes(recurrentesDeuda);
+                setTotalDebt(deudaTotalData.total);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -216,10 +232,6 @@ export default function AdminDashboard() {
                 );
                 setUnpaidTurnos(response.data);
                 paginationPayments.setMeta(response.meta);
-
-                // Calculate total debt
-                const total = response.data.reduce((sum, t) => sum + t.total_pendiente, 0);
-                setTotalDebt(total);
             } catch (err) {
                 console.error('Error fetching unpaid turnos:', err);
             }
@@ -356,6 +368,22 @@ export default function AdminDashboard() {
             setToast({ message: 'Error al depurar turnos', type: 'error' });
         } finally {
             setPurgingTurnos(false);
+        }
+    };
+
+    const handleCierreMensual = async () => {
+        setEjecutandoCierre(true);
+        try {
+            await api.post('/abonos/cierre-mensual', {});
+            setToast({ message: 'Cambio de mes ejecutado. Abonos y créditos reseteados para el nuevo mes.', type: 'success' });
+            setShowCierreModal(false);
+            setCierreConfirmText('');
+            setCierrePendiente(null);
+            setRefreshKey(prev => prev + 1);
+        } catch (err: any) {
+            setToast({ message: err.message || 'Error al ejecutar el cambio de mes', type: 'error' });
+        } finally {
+            setEjecutandoCierre(false);
         }
     };
 
@@ -528,6 +556,124 @@ export default function AdminDashboard() {
                 </div>
             )}
 
+            {/* Cierre Mensual Modal */}
+            {showCierreModal && (() => {
+                const tz = 'America/Argentina/Buenos_Aires';
+                const now = new Date();
+                const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const mesCierre = prevMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric', timeZone: tz });
+                return (
+                    <div style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                    }} onClick={() => { setShowCierreModal(false); setCierreConfirmText(''); }}>
+                        <div className="card glass animate-slide-up" style={{ maxWidth: '520px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{ padding: '10px', borderRadius: '12px', background: '#FDEDEC', color: '#E74C3C', display: 'flex' }}>
+                                    <AlertTriangle size={24} />
+                                </div>
+                                <div>
+                                    <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#E74C3C', margin: 0 }}>Cambio de Mes</h2>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, textTransform: 'capitalize' }}>
+                                        Cerrando {mesCierre}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {cierrePendiente && !cierrePendiente.pendiente && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '12px',
+                                    background: 'linear-gradient(135deg, #F0FFF4, #F9FFF9)',
+                                    border: '1px solid #A8D5B5', borderLeft: '4px solid #27AE60',
+                                    borderRadius: '10px', padding: '12px 14px', marginBottom: '16px',
+                                }}>
+                                    <Check size={18} style={{ color: '#27AE60', flexShrink: 0 }} />
+                                    <div>
+                                        <p style={{ fontWeight: '700', color: '#1E8449', fontSize: '0.88rem', margin: 0, textTransform: 'capitalize' }}>
+                                            Cierre de {cierrePendiente.mes} ya ejecutado
+                                        </p>
+                                        <p style={{ color: '#27AE60', fontSize: '0.8rem', margin: '2px 0 0' }}>
+                                            El mes anterior fue cerrado correctamente. No es necesario volver a ejecutarlo.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '10px' }}>
+                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#27AE60', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                                    ✓ Lo que se registra (snapshot permanente)
+                                </p>
+                                <div style={{ background: 'rgba(39,174,96,0.06)', border: '1px solid rgba(39,174,96,0.2)', borderRadius: '10px', padding: '12px', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                                        <li>Ingresos por <strong>turnos cobrados</strong> del mes (pagos registrados en el sistema)</li>
+                                        <li>Ingresos por <strong>turnos recurrentes</strong> cobrados del mes</li>
+                                        <li>Ingresos por <strong>abonos</strong> de <span style={{ textTransform: 'capitalize' }}>{mesCierre}</span> (socios con abono asignado al momento del cierre)</li>
+                                        <li>Detalle de socios con abono al cierre, para historial</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div style={{ marginBottom: '10px' }}>
+                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#E74C3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                                    ✗ Lo que se resetea (irreversible)
+                                </p>
+                                <div style={{ background: 'rgba(231,76,60,0.06)', border: '1px solid rgba(231,76,60,0.2)', borderRadius: '10px', padding: '12px', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                                    <ul style={{ paddingLeft: '18px', margin: 0 }}>
+                                        <li>Todos los socios <strong>pierden su abono asignado</strong> — debés reasignarlos en Gestión de Abonos para el nuevo mes</li>
+                                        <li>Los <strong>créditos disponibles</strong> de todos los socios quedan en <strong>0</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--text-muted)', marginBottom: '16px' }}>
+                                <strong style={{ color: 'var(--text-main)' }}>No se modifica:</strong> tipos de abono, turnos históricos, pagos registrados ni turnos recurrentes.
+                                <br />
+                                <strong style={{ color: '#E67E22' }}>Solo se puede ejecutar una vez por mes.</strong> Se capturan los datos de <strong style={{ color: 'var(--text-main)', textTransform: 'capitalize' }}>{mesCierre}</strong>.
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+                                    Escribí "CONFIRMAR" para continuar
+                                </label>
+                                <input
+                                    type="text"
+                                    value={cierreConfirmText}
+                                    onChange={(e) => setCierreConfirmText(e.target.value)}
+                                    style={{ width: '100%', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                                    placeholder="CONFIRMAR"
+                                    autoComplete="off"
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => { setShowCierreModal(false); setCierreConfirmText(''); }}
+                                    className="btn-secondary"
+                                    style={{ padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem' }}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    disabled={cierreConfirmText !== 'CONFIRMAR' || ejecutandoCierre}
+                                    onClick={handleCierreMensual}
+                                    style={{
+                                        padding: '10px 18px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '700',
+                                        background: cierreConfirmText === 'CONFIRMAR' && !ejecutandoCierre ? '#E74C3C' : '#ccc',
+                                        color: 'white', border: 'none',
+                                        cursor: cierreConfirmText === 'CONFIRMAR' && !ejecutandoCierre ? 'pointer' : 'not-allowed',
+                                        display: 'flex', alignItems: 'center', gap: '6px'
+                                    }}
+                                >
+                                    <RefreshCw size={16} />
+                                    {ejecutandoCierre ? 'Ejecutando...' : 'Ejecutar Cambio de Mes'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Confirmation Modal */}
             {confirmModal && (
                 <div style={{
@@ -565,6 +711,43 @@ export default function AdminDashboard() {
 
             {/* MAIN CONTENT AREA */}
             <main style={{ padding: '20px' }}>
+
+                {/* Cierre mensual status banner — only shown when pending */}
+                {cierrePendiente?.pendiente && !cierreBannerDismissed && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: 'linear-gradient(135deg, #FFF3E0, #FFF8E1)',
+                        border: '1px solid #FFB74D', borderLeft: '4px solid #E67E22',
+                        borderRadius: '12px', padding: '14px 16px', marginBottom: '16px',
+                    }}>
+                        <AlertTriangle size={20} style={{ color: '#E67E22', flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontWeight: '700', color: '#BF360C', fontSize: '0.9rem', margin: 0 }}>
+                                Cierre de {cierrePendiente.mes} pendiente
+                            </p>
+                            <p style={{ color: '#E65100', fontSize: '0.82rem', margin: '2px 0 0' }}>
+                                No se registró el cambio de mes. Ejecutalo antes de cargar abonos del nuevo mes.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowCierreModal(true)}
+                            style={{
+                                padding: '7px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '700',
+                                background: '#E67E22', color: 'white', border: 'none', cursor: 'pointer', flexShrink: 0,
+                            }}
+                        >
+                            Ejecutar ahora
+                        </button>
+                        <button
+                            onClick={() => setCierreBannerDismissed(true)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E67E22', padding: '4px', flexShrink: 0 }}
+                            title="Cerrar alerta"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
+
                 <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <div>
                         <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '2px' }}>Gestión de Turnos</h1>
@@ -586,6 +769,14 @@ export default function AdminDashboard() {
                             title="Refrescar"
                         >
                             <RefreshCw size={16} />
+                        </button>
+                        <button
+                            onClick={() => setShowCierreModal(true)}
+                            className="btn-secondary"
+                            style={{ padding: '8px 14px', borderRadius: '10px', fontSize: '0.85rem', background: '#E67E22', color: 'white', fontWeight: 700, border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            title="Cierre mensual de turnos y abonos"
+                        >
+                            <RefreshCw size={15} /> Cambio de Mes
                         </button>
                         <button onClick={() => setShowExportModal(true)} className="btn-secondary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '0.85rem', background: '#27AE60', color: 'white', fontWeight: 700 }}>
                             Exportar

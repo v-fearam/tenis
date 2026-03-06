@@ -36,6 +36,11 @@ export class PagosController {
     return this.pagosService.getMonthlyRevenue();
   }
 
+  @Get('deuda-total')
+  getTotalUnpaid() {
+    return this.pagosService.getTotalUnpaid();
+  }
+
   @Get('unpaid')
   findUnpaid(
     @Query() query: UnpaidQueryDto,
