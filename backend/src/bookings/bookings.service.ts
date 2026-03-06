@@ -333,7 +333,7 @@ export class BookingsService {
     let dataQuery = client
       .from('turnos')
       .select(
-        '*, canchas(*), turno_jugadores(*), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
+        '*, canchas(*), turno_jugadores(*, usuarios:id_persona(nombre)), solicitante:usuarios!turnos_creado_por_fkey(nombre)',
       )
       .eq('estado', 'confirmado')
       .gte('fecha', fechaDesde || today)
@@ -510,12 +510,19 @@ export class BookingsService {
       }
     }
 
-    const { error: updateError } = await client
-      .from('turnos')
-      .update({ estado: 'cancelado' })
-      .eq('id', bookingId);
+    const [turnoResult, jugadoresResult] = await Promise.all([
+      client.from('turnos').update({ estado: 'cancelado' }).eq('id', bookingId),
+      client
+        .from('turno_jugadores')
+        .update({ estado_pago: 'bonificado' })
+        .eq('id_turno', bookingId)
+        .eq('estado_pago', 'pendiente'),
+    ]);
 
-    if (updateError) throw updateError;
+    if (turnoResult.error) throw turnoResult.error;
+    if (jugadoresResult.error) {
+      this.logger.error(`Error cleaning up turno_jugadores on cancel: ${JSON.stringify(jugadoresResult.error)}`);
+    }
 
     return { id: bookingId, status: 'cancelado' };
   }
