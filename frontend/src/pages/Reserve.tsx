@@ -228,92 +228,169 @@ export default function Reserve() {
 
             {/* Abono / Membership Card */}
             {user && dashboard && (
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
-                    padding: '10px 14px', marginBottom: '10px',
-                    background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',
-                }}>
-                    {/* Next Match pill */}
-                    {dashboard.nextMatch && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
-                            <CalendarIcon size={15} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>Próximo partido:</span>
-                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--brand-blue)' }}>
-                                {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
-                            </span>
-                            {dashboard.nextMatch.canchas?.nombre && (
-                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--brand-blue)', opacity: 0.7 }}>
-                                    • {dashboard.nextMatch.canchas.nombre}
+                isMobile ? (
+                    /* ── MOBILE: 2-row compact layout ── */
+                    <div style={{
+                        padding: '7px 12px', marginBottom: '8px',
+                        background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',
+                        display: 'flex', flexDirection: 'column', gap: '6px',
+                    }}>
+                        {/* Row 1: próximo partido (fecha corta) + historial */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            {dashboard.nextMatch ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <CalendarIcon size={13} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--brand-blue)' }}>
+                                        {/* DD/MM (sin año) para ahorrar espacio */}
+                                        {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha).slice(0, 5)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
+                                    </span>
+                                    {dashboard.nextMatch.canchas?.nombre && (
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                            · {dashboard.nextMatch.canchas.nombre}
+                                        </span>
+                                    )}
+                                </div>
+                            ) : (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Sin próximo partido</span>
+                            )}
+                            <Link
+                                to="/mi-historial"
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0,
+                                    padding: '4px 9px', borderRadius: 6,
+                                    background: 'var(--bg-main)', border: '1px solid var(--border)',
+                                    fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)',
+                                    textDecoration: 'none',
+                                }}
+                            >
+                                <History size={12} />
+                                Historial
+                            </Link>
+                        </div>
+
+                        {/* Row 2: abono + créditos | deuda */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            {dashboard.abono ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                        fontSize: '0.78rem', fontWeight: '700',
+                                        color: dashboard.abono.color || 'var(--brand-blue)',
+                                        background: (dashboard.abono.color || 'var(--brand-blue)') + '18',
+                                        border: `1px solid ${dashboard.abono.color || 'var(--brand-blue)'}33`,
+                                        padding: '3px 9px', borderRadius: 8,
+                                    }}>
+                                        {dashboard.abono.tipo}
+                                    </span>
+                                    {dashboard.abono.tipo.toLowerCase() === 'libre' ? (
+                                        <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#27AE60' }}>Ilimitado</span>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <CreditCard size={13} style={{ color: dashboard.abono.creditos_disponibles >= 0.5 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
+                                            <span style={{
+                                                fontSize: '0.82rem', fontWeight: '700',
+                                                color: dashboard.abono.creditos_disponibles >= 0.5 ? 'var(--text-main)' : '#E74C3C',
+                                            }}>
+                                                {Number(dashboard.abono.creditos_disponibles).toFixed(1)}/{Number(dashboard.abono.creditos_totales).toFixed(1)}
+                                            </span>
+                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>créditos</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                    {dashboard.isSocio ? 'Sin abono asignado' : 'No socio · Tarifa general'}
+                                </span>
+                            )}
+                            {deudaTotal !== null && deudaTotal > 0 && (
+                                <span style={{ fontSize: '0.75rem', color: '#C0392B', fontWeight: '700', flexShrink: 0 }}>
+                                    Deuda: ${deudaTotal.toLocaleString('es-AR')}
                                 </span>
                             )}
                         </div>
-                    )}
-
-                    {/* Historial link + subtle debt indicator */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Link
-                            to="/mi-historial"
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '5px',
-                                padding: '5px 10px', borderRadius: 'var(--radius-sm)',
-                                background: 'var(--bg-main)', border: '1px solid var(--border)',
-                                fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-muted)',
-                                textDecoration: 'none', whiteSpace: 'nowrap',
-                            }}
-                        >
-                            <History size={14} />
-                            Mi historial
-                        </Link>
-                        {deudaTotal !== null && deudaTotal > 0 && (
-                            <span style={{ fontSize: '0.75rem', color: '#C0392B', fontWeight: '600' }}>
-                                Deuda: ${deudaTotal.toLocaleString('es-AR')}
-                            </span>
+                    </div>
+                ) : (
+                    /* ── DESKTOP: original layout ── */
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+                        padding: '10px 14px', marginBottom: '10px',
+                        background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)',
+                    }}>
+                        {dashboard.nextMatch && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 10px', background: 'var(--brand-blue-pastel)', borderRadius: 'var(--radius-sm)', whiteSpace: 'nowrap' }}>
+                                <CalendarIcon size={15} style={{ color: 'var(--brand-blue)', flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted)' }}>Próximo partido:</span>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--brand-blue)' }}>
+                                    {formatYYYYMMDDtoDDMMYYYY(dashboard.nextMatch.fecha)} {dashboard.nextMatch.hora_inicio.slice(0, 5)}
+                                </span>
+                                {dashboard.nextMatch.canchas?.nombre && (
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--brand-blue)', opacity: 0.7 }}>
+                                        • {dashboard.nextMatch.canchas.nombre}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Link
+                                to="/mi-historial"
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '5px',
+                                    padding: '5px 10px', borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--bg-main)', border: '1px solid var(--border)',
+                                    fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-muted)',
+                                    textDecoration: 'none', whiteSpace: 'nowrap',
+                                }}
+                            >
+                                <History size={14} />
+                                Mi historial
+                            </Link>
+                            {deudaTotal !== null && deudaTotal > 0 && (
+                                <span style={{ fontSize: '0.75rem', color: '#C0392B', fontWeight: '600' }}>
+                                    Deuda: ${deudaTotal.toLocaleString('es-AR')}
+                                </span>
+                            )}
+                        </div>
+                        <div style={{ flex: 1 }} />
+                        {dashboard.abono ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                    padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                                    background: (dashboard.abono.color || 'var(--brand-blue)') + '18',
+                                    border: `1px solid ${dashboard.abono.color || 'var(--brand-blue)'}33`,
+                                }}>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: '700', color: dashboard.abono.color || 'var(--brand-blue)' }}>
+                                        {dashboard.abono.tipo}
+                                    </span>
+                                </div>
+                                {dashboard.abono.tipo.toLowerCase() === 'libre' ? (
+                                    <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#27AE60' }}>Ilimitado</span>
+                                ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <CreditCard size={15} style={{ color: dashboard.abono.creditos_disponibles >= 0.5 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
+                                        <span style={{
+                                            fontSize: '0.85rem', fontWeight: '700',
+                                            color: dashboard.abono.creditos_disponibles >= 0.5 ? 'var(--text-main)' : '#E74C3C',
+                                        }}>
+                                            {Number(dashboard.abono.creditos_disponibles).toFixed(1)}/{Number(dashboard.abono.creditos_totales).toFixed(1)}
+                                        </span>
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>créditos</span>
+                                    </div>
+                                )}
+                            </div>
+                        ) : dashboard.isSocio ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <CreditCard size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin abono asignado</span>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <Wallet size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No socio — Tarifa general</span>
+                            </div>
                         )}
                     </div>
-
-                    {/* Separator */}
-                    <div style={{ flex: 1 }} />
-
-                    {/* Abono info */}
-                    {dashboard.abono ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
-                                background: (dashboard.abono.color || 'var(--brand-blue)') + '18',
-                                border: `1px solid ${dashboard.abono.color || 'var(--brand-blue)'}33`,
-                            }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: '700', color: dashboard.abono.color || 'var(--brand-blue)' }}>
-                                    {dashboard.abono.tipo}
-                                </span>
-                            </div>
-                            {dashboard.abono.tipo.toLowerCase() === 'libre' ? (
-                                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#27AE60' }}>Ilimitado</span>
-                            ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <CreditCard size={15} style={{ color: dashboard.abono.creditos_disponibles >= 0.5 ? '#27AE60' : '#E74C3C', flexShrink: 0 }} />
-                                    <span style={{
-                                        fontSize: '0.85rem', fontWeight: '700',
-                                        color: dashboard.abono.creditos_disponibles >= 0.5 ? 'var(--text-main)' : '#E74C3C',
-                                    }}>
-                                        {Number(dashboard.abono.creditos_disponibles).toFixed(1)}/{Number(dashboard.abono.creditos_totales).toFixed(1)}
-                                    </span>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>créditos</span>
-                                </div>
-                            )}
-                        </div>
-                    ) : dashboard.isSocio ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <CreditCard size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sin abono asignado</span>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Wallet size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No socio — Tarifa general</span>
-                        </div>
-                    )}
-                </div>
+                )
             )}
 
             <main className="animate-slide-up">

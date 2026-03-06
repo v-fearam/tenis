@@ -21,6 +21,16 @@ import { PaginationDto } from '../common/dto';
 export class PagosController {
   constructor(private readonly pagosService: PagosService) { }
 
+  @Get('historical-revenue')
+  getHistoricalRevenue() {
+    return this.pagosService.getHistoricalRevenue();
+  }
+
+  @Get('current-month-summary')
+  getCurrentMonthSummary() {
+    return this.pagosService.getCurrentMonthSummary();
+  }
+
   @Get('monthly-revenue')
   getMonthlyRevenue() {
     return this.pagosService.getMonthlyRevenue();

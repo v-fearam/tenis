@@ -253,21 +253,36 @@ export class AbonosService {
       }
     }
 
-    // 5. Compute turnos revenue: sum of cargo payments in the month
+    // 5. Compute turnos revenue: sum of effective payments (pago) in the month
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const nextMesAnio = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
 
-    const { data: cargos, error: cargosError } = await client
+    const { data: pagos, error: pagosError } = await client
       .from('pagos')
       .select('monto')
-      .eq('tipo', 'cargo')
+      .eq('tipo', 'pago')
       .gte('fecha', mesAnio)
       .lt('fecha', nextMesAnio);
 
-    if (cargosError) throw cargosError;
+    if (pagosError) throw pagosError;
 
-    const totalIngresoTurnos = (cargos || []).reduce(
-      (sum, p) => sum + Math.abs(Number(p.monto)),
+    const totalIngresoTurnos = (pagos || []).reduce(
+      (sum, p) => sum + Number(p.monto),
+      0,
+    );
+
+    // 5b. Compute recurrentes revenue: sum of payments in movimientos_recurrentes
+    const { data: pagosRecurrentes, error: recurrentesError } = await client
+      .from('movimientos_recurrentes')
+      .select('monto')
+      .eq('tipo', 'pago')
+      .gte('fecha', mesAnio)
+      .lt('fecha', nextMesAnio);
+
+    if (recurrentesError) throw recurrentesError;
+
+    const totalIngresoRecurrentes = (pagosRecurrentes || []).reduce(
+      (sum, p) => sum + Number(p.monto),
       0,
     );
 
@@ -278,6 +293,7 @@ export class AbonosService {
         mes_anio: mesAnio,
         ingreso_abonos: totalIngresoAbonos,
         ingreso_turnos: totalIngresoTurnos,
+        ingreso_recurrentes: totalIngresoRecurrentes,
         cantidad_socios_con_abono: (sociosConAbono || []).length,
         detalle_abonos: Array.from(abonoGroups.values()),
         ejecutado_por: adminUserId,

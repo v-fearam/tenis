@@ -445,6 +445,88 @@ export class PagosService {
     return { players_paid: paidPlayerIds.length, total_paid: totalPaid };
   }
 
+  async getHistoricalRevenue() {
+    const client = this.supabaseService.getClient();
+    const { data, error } = await client
+      .from('cierres_mensuales')
+      .select('mes_anio, ingreso_turnos, ingreso_abonos, ingreso_recurrentes, cantidad_socios_con_abono')
+      .order('mes_anio', { ascending: true })
+      .limit(12);
+
+    if (error) {
+      this.logger.error('Error fetching historical revenue', error);
+      throw new InternalServerErrorException('Error al obtener ingresos históricos');
+    }
+
+    return (data || []).map((r: any) => ({
+      mes: r.mes_anio,
+      ingreso_turnos: Number(r.ingreso_turnos) || 0,
+      ingreso_abonos: Number(r.ingreso_abonos) || 0,
+      ingreso_recurrentes: Number(r.ingreso_recurrentes) || 0,
+      cantidad_socios_con_abono: Number(r.cantidad_socios_con_abono) || 0,
+      total: (Number(r.ingreso_turnos) || 0) + (Number(r.ingreso_abonos) || 0) + (Number(r.ingreso_recurrentes) || 0),
+    }));
+  }
+
+  async getCurrentMonthSummary() {
+    const client = this.supabaseService.getClient();
+    const now = new Date();
+    const mesAnio = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMesAnio = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+
+    const [pagosResult, recurrentesResult, abonosResult, deudaTurnosResult, deudaRecurrentesResult] = await Promise.all([
+      // 1. Cobrado en turnos: pagos efectivos del mes
+      client.from('pagos').select('monto').eq('tipo', 'pago').gte('fecha', mesAnio).lt('fecha', nextMesAnio),
+      // 2. Cobrado en recurrentes: movimientos del mes
+      client.from('movimientos_recurrentes').select('monto').eq('tipo', 'pago').gte('fecha', mesAnio).lt('fecha', nextMesAnio),
+      // 3. Cobrado en abonos: socios con abono asignado actualmente (pre-pago)
+      client.from('socios').select('tipos_abono:id_tipo_abono(precio)').not('id_tipo_abono', 'is', null),
+      // 4a. Deuda turnos normales: turno_jugadores pendientes
+      client.from('turno_jugadores').select('monto_generado').eq('estado_pago', 'pendiente').gt('monto_generado', 0),
+      // 4b. Deuda recurrentes: monto_recurrente pasado no cancelado
+      client.from('turnos').select('monto_recurrente').not('id_turno_recurrente', 'is', null).neq('estado', 'cancelado').lt('fecha', now.toISOString().slice(0, 10)).gt('monto_recurrente', 0),
+    ]);
+
+    const cobradoTurnos = (pagosResult.data || []).reduce((s: number, p: any) => s + Number(p.monto), 0);
+    const cobradoRecurrentes = (recurrentesResult.data || []).reduce((s: number, p: any) => s + Number(p.monto), 0);
+    const cobradoAbonos = (abonosResult.data || []).reduce((s: number, r: any) => s + Number((r.tipos_abono as any)?.precio || 0), 0);
+    const deudaTurnos = (deudaTurnosResult.data || []).reduce((s: number, p: any) => s + Number(p.monto_generado), 0);
+    const montoRecurrentePasado = (deudaRecurrentesResult.data || []).reduce((s: number, t: any) => s + Number(t.monto_recurrente), 0);
+
+    // Recurrentes pagados totales (para calcular deuda global)
+    const { data: totalPagadoRec } = await client
+      .from('movimientos_recurrentes')
+      .select('monto')
+      .in('tipo', ['pago', 'bonificacion']);
+
+    const totalPagadoRecurrentes = (totalPagadoRec || []).reduce((s: number, p: any) => s + Number(p.monto), 0);
+    const deudaRecurrentes = Math.max(0, montoRecurrentePasado - totalPagadoRecurrentes);
+
+    // Get last closed month for trend calculation
+    const { data: lastCierre } = await client
+      .from('cierres_mensuales')
+      .select('ingreso_turnos, ingreso_abonos, ingreso_recurrentes')
+      .order('mes_anio', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lastTotal = lastCierre
+      ? (Number(lastCierre.ingreso_turnos) || 0) + (Number(lastCierre.ingreso_abonos) || 0) + (Number(lastCierre.ingreso_recurrentes) || 0)
+      : 0;
+    const currentTotal = cobradoTurnos + cobradoAbonos + cobradoRecurrentes;
+    const tendencia = lastTotal > 0 ? ((currentTotal - lastTotal) / lastTotal) * 100 : 0;
+
+    return {
+      cobrado_turnos: cobradoTurnos,
+      cobrado_abonos: cobradoAbonos,
+      cobrado_recurrentes: cobradoRecurrentes,
+      deuda_pendiente: deudaTurnos + deudaRecurrentes,
+      total_cobrado: currentTotal,
+      tendencia_pct: Math.round(tendencia * 10) / 10,
+    };
+  }
+
   async getMonthlyRevenue() {
     const client = this.supabaseService.getClient();
     const now = new Date();

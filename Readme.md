@@ -29,7 +29,8 @@ Plataforma de gestión de reservas de canchas y membresías para Club Belgrano (
 - **Membership (Abonos)** — Manage subscription types (Abono Libre, Abono x Partidos, Socio Sin Abono), assign to members, monthly close
 - **Courts (Canchas)** — Create and manage courts with hours, surface, and lighting
 - **Blocks (Bloqueos)** — Block time slots for tournaments, classes, or maintenance
-- **Payments** — Register payments/bonifications, view unpaid debts, monthly revenue
+- **Finanzas** — Financial dashboard: stacked bar chart (Recharts) with 3-segment historical revenue (turnos / abonos / recurrentes), 4 stat cards for current month, trend indicator vs last close, composition breakdown
+- **Payments** — Register payments/bonifications, view unpaid debts by turno
 - **Configuration** — Pricing keys editable at runtime (`precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`, `descuento_recurrente`)
 - **Dashboard** — Summary: pending bookings, monthly revenue, member debt, recurring booking debt
 
@@ -116,6 +117,7 @@ npm run dev:frontend   # Vite dev server
 | `/admin/abonos` | Admin | Membership management |
 | `/admin/canchas` | Admin | Court management |
 | `/admin/bloqueos` | Admin | Court blocks |
+| `/admin/finanzas` | Admin | Financial dashboard (chart + stat cards) |
 | `/admin/pagos` | Admin | Payments & debt |
 | `/admin/config` | Admin | System configuration |
 | `/admin/turnos-recurrentes` | Admin | Recurring bookings |

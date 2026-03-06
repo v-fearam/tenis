@@ -36,6 +36,14 @@ Logic in `bookings.service.ts`:
 - **Abono x Partidos**: singles = 1 credit, doubles = 0.5 credits. Falls back to `precio_socio_sin_abono` if exhausted. Credits consumed at creation.
 - **Lifecycle**: `create()` → status pending, cost calculated. `confirm()` → generates `pagos`. `cancel()` → refunds abono credits (0.5 for doubles, 1 for singles).
 
+## Finanzas Dashboard (`/admin/finanzas`)
+
+Frontend: `AdminFinance.tsx` — Recharts `ComposedChart` (stacked bars + line overlay on secondary Y axis).
+- **`GET /pagos/historical-revenue`** → last 12 cierres → chart data
+- **`GET /pagos/current-month-summary`** → 4 stat cards + tendencia %
+- **Cierre mensual** (`ejecutarCierreMensual`): `ingreso_turnos` = `pagos.tipo='pago'` (cobrado efectivo). `ingreso_recurrentes` = `movimientos_recurrentes.tipo='pago'`. Column `ingreso_recurrentes` added (migration).
+- Seed data: `db/seeds/seed_cierres.sql` (Dic 25, Ene 26, Feb 26)
+
 ## Recurring Bookings (TurnosRecurrentes)
 
 Isolated module. Turnos are created as `confirmado` with `tipo_partido: 'double'`.

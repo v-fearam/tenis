@@ -105,11 +105,36 @@ interface HistoryItem {
 ### Pagos (`/api/pagos`) — All Admin
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/pagos/monthly-revenue` | Get monthly revenue |
+| GET | `/pagos/historical-revenue` | Last 12 monthly closes from `cierres_mensuales` (for chart) |
+| GET | `/pagos/current-month-summary` | Current month: cobrado turnos/abonos/recurrentes + deuda pendiente + tendencia |
+| GET | `/pagos/monthly-revenue` | Combined current-month revenue (turnos + recurrentes) — used by dashboard StatCard |
 | GET | `/pagos/unpaid?page=&pageSize=&fecha_desde=&fecha_hasta=` | List unpaid turnos (paginated, filterable by date) |
 | POST | `/pagos/pay` | Register payment |
 | POST | `/pagos/gift` | Gift/bonify payment |
 | POST | `/pagos/pay-all` | Pay all debts for a turno |
+
+#### Response shapes
+```typescript
+// GET /pagos/historical-revenue
+Array<{
+  mes: string;              // "2025-12-01" (YYYY-MM-DD, first of month)
+  ingreso_turnos: number;
+  ingreso_abonos: number;
+  ingreso_recurrentes: number;
+  cantidad_socios_con_abono: number;
+  total: number;
+}>
+
+// GET /pagos/current-month-summary
+{
+  cobrado_turnos: number;       // SUM pagos.tipo='pago' this month
+  cobrado_abonos: number;       // SUM tipos_abono.precio for socios with abono now
+  cobrado_recurrentes: number;  // SUM movimientos_recurrentes.tipo='pago' this month
+  deuda_pendiente: number;      // Unpaid turno_jugadores + deuda recurrentes global
+  total_cobrado: number;        // cobrado_turnos + cobrado_abonos + cobrado_recurrentes
+  tendencia_pct: number;        // % change vs last cierre total (0 if no cierres)
+}
+```
 
 ### Turnos Recurrentes (`/api/turnos-recurrentes`) — All Admin
 | Method | Path | Description |
@@ -294,16 +319,19 @@ interface HistoryItem {
 | descripcion | text | nullable |
 | creado_por | uuid | FK → usuarios, nullable |
 
-### cierres_mensuales (1 row, RLS enabled)
+### cierres_mensuales (4 rows, RLS enabled)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
 | mes_anio | date | unique |
-| ingreso_abonos | numeric | |
-| ingreso_turnos | numeric | |
+| ingreso_abonos | numeric | Pre-pago: SUM precio of assigned abonos |
+| ingreso_turnos | numeric | **Plata cobrada** (tipo='pago'), not cargos |
+| ingreso_recurrentes | numeric | SUM movimientos_recurrentes.tipo='pago' (default 0) |
 | cantidad_socios_con_abono | int | |
 | detalle_abonos | jsonb | nullable |
 | ejecutado_por | uuid | FK → usuarios, nullable |
+
+> **Criterio cierre**: `ingreso_turnos` = plata **efectivamente cobrada** (pagos), no facturada (cargos). Corrección aplicada en `ejecutarCierreMensual()` — cambio de `tipo='cargo'` a `tipo='pago'`.
 
 ---
 
