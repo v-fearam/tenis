@@ -84,6 +84,7 @@ export default function AdminDashboard() {
     const [payingPlayer, setPayingPlayer] = useState<string | null>(null);
     const [totalDebt, setTotalDebt] = useState(0);
     const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+    const [deudaRecurrentes, setDeudaRecurrentes] = useState({ deuda: 0, comprometido: 0 });
 
     // Export modal state
     const [showExportModal, setShowExportModal] = useState(false);
@@ -151,7 +152,7 @@ export default function AdminDashboard() {
                 const filterParams = (debouncedFilterName ? `&nombre=${encodeURIComponent(debouncedFilterName)}` : '') +
                     (filterCourt ? `&court_id=${filterCourt}` : '');
 
-                const [bookingsResponse, activeResponse, usersCount, revenueData] = await Promise.all([
+                const [bookingsResponse, activeResponse, usersCount, revenueData, recurrentesDeuda] = await Promise.all([
                     api.get<PaginatedResponse<Booking>>(
                         `/bookings?status=pending&page=${pendingParams.page}&pageSize=${pendingParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}${filterParams}`
                     ),
@@ -159,7 +160,8 @@ export default function AdminDashboard() {
                         `/bookings/active?page=${activeParams.page}&pageSize=${activeParams.pageSize}&fecha_desde=${dateFrom}&fecha_hasta=${dateTo}${filterParams}`
                     ),
                     api.get<{ count: number }>('/users/count').catch(() => ({ count: 120 })),
-                    api.get<{ total: number }>('/pagos/monthly-revenue').catch(() => ({ total: 0 }))
+                    api.get<{ total: number }>('/pagos/monthly-revenue').catch(() => ({ total: 0 })),
+                    api.get<{ deuda: number; comprometido: number }>('/turnos-recurrentes/deuda-total').catch(() => ({ deuda: 0, comprometido: 0 })),
                 ]);
 
                 setBookings(bookingsResponse.data);
@@ -170,6 +172,7 @@ export default function AdminDashboard() {
 
                 setTotalUsers(usersCount.count);
                 setMonthlyRevenue(revenueData.total);
+                setDeudaRecurrentes(recurrentesDeuda);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching dashboard data:', err);
@@ -667,6 +670,13 @@ export default function AdminDashboard() {
                         icon={<DollarSign size={22} />}
                         color="orange"
                     />
+                    <StatCard
+                        title="Deuda Recurrentes"
+                        value={`$${deudaRecurrentes.deuda.toLocaleString('es-AR')}`}
+                        subtitle={`Comprometido: $${deudaRecurrentes.comprometido.toLocaleString('es-AR')}`}
+                        icon={<DollarSign size={22} />}
+                        color="orange"
+                    />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
@@ -1106,7 +1116,7 @@ export default function AdminDashboard() {
 }
 
 
-function StatCard({ title, value, icon, color, trend, pulse }: any) {
+function StatCard({ title, value, icon, color, trend, pulse, subtitle }: any) {
     const accents: any = {
         blue: { main: '#0A84FF', pastel: 'rgba(10, 132, 255, 0.1)' },
         orange: { main: '#FF9F0A', pastel: 'rgba(255, 159, 10, 0.1)' },
@@ -1134,6 +1144,7 @@ function StatCard({ title, value, icon, color, trend, pulse }: any) {
                         <div style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{value}</div>
                         {trend && <div style={{ fontSize: '0.75rem', fontWeight: '700', color: accent.main }}>{trend}</div>}
                     </div>
+                    {subtitle && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitle}</div>}
                 </div>
             </div>
         </div>

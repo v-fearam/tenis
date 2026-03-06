@@ -1,80 +1,66 @@
 # CLAUDE.md
 
-## Project Overview
+## Project
 
-Tennis court booking and membership management system for Club Belgrano (General Belgrano, Buenos Aires). Monorepo with NestJS backend and Vite+React frontend, using Supabase (PostgreSQL) as the database and auth provider.
+Tennis court booking & membership system for Club Belgrano (BA). NestJS backend + Vite/React frontend + Supabase (Postgres + Auth).
 
-**Language convention:** Code in English, UI text in Spanish.
+**Convention:** Code in English, UI text in Spanish.
 
 ## Commands
 
 ```bash
-# Install all dependencies (from root)
-npm install
-
-# Development
-npm run dev:backend          # NestJS watch mode (port 3000)
-npm run dev:frontend         # Vite dev server
-
-# Build
-npm run build --workspace=backend    # TypeScript compilation → dist/
-npm run build --workspace=frontend   # tsc + vite build
-
-# Tests
-npm run test                         # Jest (backend)
-npm run test:watch --workspace=backend
-npm run test:cov --workspace=backend
-
-# Lint
-npm run lint --workspace=backend     # ESLint + Prettier (auto-fix)
-npm run lint --workspace=frontend    # ESLint
+npm install                              # root — installs all workspaces
+npm run dev:backend                      # NestJS watch mode (port 3000)
+npm run dev:frontend                     # Vite dev server
+npm run build --workspace=backend        # tsc → dist/
+npm run build --workspace=frontend       # tsc + vite build
+npm run test                             # Jest (backend)
+npm run lint --workspace=backend         # ESLint + Prettier (auto-fix)
+npm run lint --workspace=frontend        # ESLint
 ```
 
 ## Architecture
 
-**Monorepo** using NPM workspaces (`backend/`, `frontend/`).
+**Monorepo** (NPM workspaces: `backend/`, `frontend/`).
 
-- **Backend (NestJS 11)**: Feature modules pattern — each feature has `module`, `controller`, `service`, `dto/`. Modules: Auth, Users, Bookings, Canchas, Bloqueos, Abonos, Config, Supabase (global). All endpoints under `/api` prefix.
-- **Frontend (Vite + React 19 + TS)**: Vanilla CSS with pastel design system (`index.css` CSS vars). React Router v7. Auth via `AuthContext`. API client in `lib/api.ts` with Bearer token injection.
-- **Auth**: Supabase Auth with JWT validation (`JwtAuthGuard`), role-based access (`RolesGuard` + `@Roles()` decorator). Roles: `admin`, `socio`, `no-socio`.
-- **User creation flow**: Admin creates user via `auth.admin.createUser()` → DB trigger auto-creates `usuarios` row → service creates `socios` row if role is socio.
+- **Backend (NestJS 11)**: Feature modules — `module`, `controller`, `service`, `dto/`. Modules: Auth, Users, Bookings, Canchas, Bloqueos, Abonos, TurnosRecurrentes, Config, Supabase (global). All endpoints under `/api`.
+- **Frontend (Vite + React 19 + TS)**: Vanilla CSS pastel design system (`index.css` vars). React Router v7. `AuthContext` for auth. `lib/api.ts` injects Bearer token.
+- **Auth**: Supabase JWT (`JwtAuthGuard`), roles: `admin`, `socio`, `no-socio` (`RolesGuard` + `@Roles()`).
+- **User creation**: Admin → `auth.admin.createUser()` → DB trigger creates `usuarios` row → service creates `socios` row if socio.
 
 ## Business Rules (Booking & Pricing)
 
-Key logic in `bookings.service.ts`:
+Logic in `bookings.service.ts`:
+- **Prices** from `config_sistema`: `precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`, `descuento_recurrente`.
+- **Cost split**: `base_tariff / total_players` per player, stored in `turno_jugadores.monto_generado`.
+- **Abono x Partidos**: singles = 1 credit, doubles = 0.5 credits. Falls back to `precio_socio_sin_abono` if exhausted. Credits consumed at creation.
+- **Lifecycle**: `create()` → status pending, cost calculated. `confirm()` → generates `pagos`. `cancel()` → refunds abono credits (0.5 for doubles, 1 for singles).
 
-1. **At creation** (`create()`): status `pending`, cost calculated immediately:
-   - Prices from `config_sistema` table (keys: `precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`)
-   - Each player's cost = `base_tariff / total_players` (proportional split)
-   - **Abono x Partidos**: consumes credits → $0 if credits available. **Credit consumption varies by match type**: singles = 1 credit, doubles = 0.5 credits. If credits exhausted, falls back to `precio_socio_sin_abono`
-   - **Socio sin abono**: `precio_socio_sin_abono` rate
-   - **No socio / Invitado**: `precio_no_socio` rate
-   - Abono credits consumed immediately. Per-player cost stored in `turno_jugadores.monto_generado`
-   - `creditos_disponibles` is `numeric(5,1)` — supports fractional values (e.g. 3.5)
-2. **At confirmation** (`confirm()`): admin confirms → generates `pagos` (debt records) from pre-calculated `monto_generado`
-3. **At cancellation** (`cancel()`): refunds abono credits for players with `uso_abono = true` (refund amount matches match type: 0.5 for doubles, 1 for singles)
-4. **Cost preview** (`POST /api/bookings/preview`): estimates cost before submitting. Accepts optional `match_type` to calculate correct credit usage.
+## Recurring Bookings (TurnosRecurrentes)
 
-Membership tiers: Abono Libre, Abono x Partidos, Socio Sin Abono, No Socio. `config_sistema` is the single source of truth for pricing (keys normalized: lowercase, spaces → underscores).
+Isolated module. Turnos are created as `confirmado` with `tipo_partido: 'double'`.
+- **Debt model**: `deuda` = SUM past non-cancelled `monto_recurrente`; `comprometido` = SUM future; `saldo` = pagado − deuda.
+- Frontend: `id_usuario_responsable` (usuarios.id from typeahead) → service resolves to `socios.id`.
+- New tables: `turnos_recurrentes`, `movimientos_recurrentes`. New columns on `turnos`: `id_turno_recurrente`, `monto_recurrente`.
 
 ## Database & API Reference
 
-For full API endpoints and DB schema details, read `docs/claude-reference.md` (only when needed).
+See `docs/claude-reference.md` for full endpoints and schema.
 
-Key tables: `usuarios`, `socios`, `turnos`, `turno_jugadores`, `canchas`, `bloqueos`, `tipos_abono`, `pagos`, `config_sistema`, `cierres_mensuales`. Trigger `handle_new_user` on `auth.users` auto-creates `usuarios` row. RLS enabled on all tables.
+Key tables: `usuarios`, `socios`, `turnos`, `turno_jugadores`, `canchas`, `bloqueos`, `tipos_abono`, `pagos`, `config_sistema`, `cierres_mensuales`, `turnos_recurrentes`, `movimientos_recurrentes`.
 
 ## Deployment
 
-Both services deploy to Vercel. Frontend: SPA rewrite. Backend: routes all to NestJS entry point.
+Both services on Vercel. Frontend: SPA rewrite. Backend: all routes → NestJS entry point.
 
 ## Skills
 
 | Skill | When to use |
 |-------|-------------|
-| `nestjs-best-practices` | Writing/reviewing NestJS code — modules, DI, guards, pipes, interceptors |
-| `supabase-postgres-best-practices` | SQL queries, schemas, indexes, RLS policies, query optimization |
-| `vercel-react-best-practices` | React components — re-renders, bundle size, data fetching, memoization |
-| `ui-ux-pro-max` | UI design, color palettes, typography, accessibility, animations |
-| `architecture-patterns` | Major refactors — Clean Architecture, Hexagonal, DDD |
-| `requirements-analysis` | Clarifying vague feature requests before implementation |
+| `nestjs-best-practices` | NestJS modules, DI, guards, pipes, interceptors |
+| `supabase-postgres-best-practices` | SQL, schemas, indexes, RLS, query optimization |
+| `vercel-react-best-practices` | React re-renders, bundle size, data fetching, memoization |
+| `ui-ux-pro-max` | UI design, palettes, typography, accessibility, animations |
+| `architecture-patterns` | Major refactors — Clean/Hexagonal/DDD |
+| `requirements-analysis` | Clarifying vague feature requests |
 | `find-skills` | Searching for new agent skills |

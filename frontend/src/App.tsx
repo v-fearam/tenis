@@ -14,6 +14,8 @@ import AdminBloqueos from './pages/AdminBloqueos';
 import AdminFinance from './pages/AdminFinance';
 import AdminAbonos from './pages/AdminAbonos';
 import SocioHistorial from './pages/SocioHistorial';
+import TurnosRecurrentes from './pages/TurnosRecurrentes';
+import TurnoRecurrenteDetalle from './pages/TurnoRecurrenteDetalle';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
 
@@ -48,6 +50,8 @@ function App() {
               <Route path="/admin/bloqueos" element={<AdminBloqueos />} />
               <Route path="/admin/finanzas" element={<AdminFinance />} />
               <Route path="/admin/abonos" element={<AdminAbonos />} />
+              <Route path="/admin/turnos-recurrentes" element={<TurnosRecurrentes />} />
+              <Route path="/admin/turnos-recurrentes/:id" element={<TurnoRecurrenteDetalle />} />
               <Route path="/admin/usuarios/:id/historial" element={<SocioHistorial />} />
             </Route>
           </Routes>

@@ -452,25 +452,37 @@ export class PagosService {
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const lastDayStr = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}T23:59:59`;
 
-    // Only 'pago' type counts as revenue (bonificacion/regalo does not)
-    const { data, error } = await client
-      .from('pagos')
-      .select('monto')
-      .eq('tipo', 'pago')
-      .gte('fecha', firstDay)
-      .lte('fecha', lastDayStr);
+    // Include both regular payments and recurring payments
+    const [pagosResult, recurrentesResult] = await Promise.all([
+      client
+        .from('pagos')
+        .select('monto')
+        .eq('tipo', 'pago')
+        .gte('fecha', firstDay)
+        .lte('fecha', lastDayStr),
+      client
+        .from('movimientos_recurrentes')
+        .select('monto')
+        .eq('tipo', 'pago')
+        .gte('fecha', firstDay)
+        .lte('fecha', lastDayStr),
+    ]);
 
-    if (error) {
-      this.logger.error('Error fetching monthly revenue', error);
+    if (pagosResult.error) {
+      this.logger.error('Error fetching monthly revenue', pagosResult.error);
       return { total: 0 };
     }
 
-    const total = (data || []).reduce(
+    const totalPagos = (pagosResult.data || []).reduce(
+      (sum: number, p: any) => sum + Number(p.monto),
+      0,
+    );
+    const totalRecurrentes = (recurrentesResult.data || []).reduce(
       (sum: number, p: any) => sum + Number(p.monto),
       0,
     );
 
-    return { total };
+    return { total: totalPagos + totalRecurrentes };
   }
 
   private async computeRemainingDebt(

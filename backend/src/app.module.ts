@@ -11,6 +11,7 @@ import { BloqueosModule } from './bloqueos/bloqueos.module';
 import { CanchasModule } from './canchas/canchas.module';
 import { AbonosModule } from './abonos/abonos.module';
 import { PagosModule } from './pagos/pagos.module';
+import { TurnosRecurrentesModule } from './turnos-recurrentes/turnos-recurrentes.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PagosModule } from './pagos/pagos.module';
     CanchasModule,
     AbonosModule,
     PagosModule,
+    TurnosRecurrentesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

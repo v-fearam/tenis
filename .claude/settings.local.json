@@ -22,7 +22,8 @@
       "Bash(cat:*)",
       "Bash(taskkill:*)",
       "mcp__supabase__list_migrations",
-      "Bash(npm run test --workspace=backend)"
+      "Bash(npm run test --workspace=backend)",
+      "Bash(test -f c:/dev/tenis/README.md)"
     ]
   },
   "enableAllProjectMcpServers": true,

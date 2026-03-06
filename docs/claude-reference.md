@@ -111,6 +111,41 @@ interface HistoryItem {
 | POST | `/pagos/gift` | Gift/bonify payment |
 | POST | `/pagos/pay-all` | Pay all debts for a turno |
 
+### Turnos Recurrentes (`/api/turnos-recurrentes`) — All Admin
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/turnos-recurrentes/check-availability` | Check slot availability + compute suggested price |
+| GET | `/turnos-recurrentes/deuda-total` | Total debt + committed across all active recurrencias (dashboard) |
+| GET | `/turnos-recurrentes?page=&pageSize=&estado=` | List recurrencias with saldo calculated |
+| POST | `/turnos-recurrentes` | Create recurrencia + batch-insert turnos |
+| GET | `/turnos-recurrentes/:id` | Detail: recurrencia + turnos + movimientos + saldo |
+| POST | `/turnos-recurrentes/:id/pagos` | Register a payment or bonification |
+| GET | `/turnos-recurrentes/:id/recalcular` | Preview price recalculation for future turnos |
+| POST | `/turnos-recurrentes/:id/recalcular` | Confirm price recalculation (update monto_recurrente) |
+| DELETE | `/turnos-recurrentes/:id/turnos/:turnoId` | Cancel a single day turno |
+| DELETE | `/turnos-recurrentes/:id` | Cancel all: marks future turnos cancelled + recurrencia cancelled |
+
+#### Key DTOs
+```typescript
+// POST /check-availability
+{ id_cancha: number; dias_semana: number[]; hora_inicio: string; fecha_desde: string; fecha_hasta: string; }
+// Response: { fechas_disponibles: string[]; conflictos: {...}[]; precio_sugerido: number }
+
+// POST / (create)
+{ nombre: string; id_usuario_responsable: string; id_cancha: number; dias_semana: number[];
+  hora_inicio: string; fecha_desde: string; fecha_hasta: string; monto_total: number; observacion?: string }
+// Note: id_usuario_responsable is usuarios.id — service resolves to socios.id
+
+// POST /:id/pagos
+{ monto: number; tipo: 'pago' | 'bonificacion'; descripcion?: string; medio?: string }
+```
+
+#### Debt model
+- `deuda` = SUM(`monto_recurrente`) of past non-cancelled turnos
+- `comprometido` = SUM(`monto_recurrente`) of future non-cancelled turnos
+- `pagado` = SUM(`monto`) of movimientos where tipo='pago'
+- `saldo` = pagado − deuda (positive = in favor, negative = owes)
+
 ### Config (`/api/config`)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
@@ -156,7 +191,37 @@ interface HistoryItem {
 | hora_cierre | time | default: 22:30 |
 | tiene_luz | bool | default: false |
 
-### turnos (44 rows)
+### turnos_recurrentes
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| nombre | text | |
+| id_cancha | int | FK → canchas |
+| id_socio_responsable | uuid | FK → socios |
+| dias_semana | int[] | ISO days: 1=Mon … 7=Sun |
+| hora_inicio | time | |
+| hora_fin | time | |
+| fecha_desde | date | |
+| fecha_hasta | date | |
+| precio_unitario_original | numeric(10,2) | price at creation time |
+| observacion | text | nullable |
+| estado | varchar | check: activa, cancelada |
+| creado_por | uuid | FK → usuarios, nullable |
+| created_at | timestamptz | |
+
+### movimientos_recurrentes
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| id_turno_recurrente | uuid | FK → turnos_recurrentes |
+| tipo | varchar | check: pago, bonificacion |
+| monto | numeric(10,2) | |
+| descripcion | text | nullable |
+| medio | varchar | nullable |
+| registrado_por | uuid | FK → usuarios, nullable |
+| created_at | timestamptz | |
+
+### turnos
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
@@ -164,7 +229,7 @@ interface HistoryItem {
 | fecha | date | |
 | hora_inicio | time | |
 | hora_fin | time | |
-| tipo_partido | varchar | check: single, double |
+| tipo_partido | varchar | check: single, double — NOT NULL |
 | estado | varchar | check: pendiente, confirmado, cancelado |
 | creado_por | uuid | FK → usuarios, nullable |
 | confirmado_por | uuid | FK → usuarios, nullable |
@@ -173,6 +238,8 @@ interface HistoryItem {
 | email_organizador | varchar | nullable |
 | telefono_organizador | varchar | nullable |
 | costo | numeric | default: 0 |
+| id_turno_recurrente | uuid | FK → turnos_recurrentes, nullable |
+| monto_recurrente | numeric(10,2) | per-occurrence price for recurrentes, nullable |
 
 ### turno_jugadores (94 rows)
 | Column | Type | Notes |
@@ -207,7 +274,7 @@ interface HistoryItem {
 | precio | numeric | |
 | color | text | nullable |
 
-### config_sistema (7 rows, RLS enabled)
+### config_sistema (8 rows, RLS enabled)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid | PK |
@@ -248,10 +315,24 @@ usuarios ←── turnos.creado_por, confirmado_por
 usuarios ←── turno_jugadores.id_persona
 usuarios ←── bloqueos.creado_por
 usuarios ←── cierres_mensuales.ejecutado_por
+usuarios ←── turnos_recurrentes.creado_por
+usuarios ←── movimientos_recurrentes.registrado_por
 canchas ←── turnos.id_cancha
 canchas ←── bloqueos.id_cancha
+canchas ←── turnos_recurrentes.id_cancha
 turnos ←── turno_jugadores.id_turno
+turnos ←── turnos_recurrentes.id (via turnos.id_turno_recurrente)
 turno_jugadores ←── pagos.id_turno_jugador
 socios ←── pagos.id_socio
+socios ←── turnos_recurrentes.id_socio_responsable
 tipos_abono ←── socios.id_tipo_abono
+turnos_recurrentes ←── movimientos_recurrentes.id_turno_recurrente
 ```
+
+### config_sistema keys
+| Key | Description |
+|-----|-------------|
+| `precio_no_socio` | Per-player price for non-members |
+| `precio_socio_sin_abono` | Per-player price for members without abono |
+| `precio_socio_abonado` | Per-player price for members with abono |
+| `descuento_recurrente` | Discount % for recurring bookings (default: 20) |

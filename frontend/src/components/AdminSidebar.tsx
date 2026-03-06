@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Users, CreditCard, Settings, LayoutGrid, ShieldAlert,
-    ChevronLeft, Pin, PinOff, Home, Ticket
+    ChevronLeft, Pin, PinOff, Home, Ticket, Repeat
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.jpg';
@@ -119,6 +119,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
             </div>
             <SidebarLink to="/admin/bloqueos" icon={<ShieldAlert size={20} />} label="Bloqueos" collapsed={collapsed} />
             <SidebarLink to="/admin" icon={<LayoutGrid size={20} />} label="Turnos" collapsed={collapsed} />
+            <SidebarLink to="/admin/turnos-recurrentes" icon={<Repeat size={20} />} label="Recurrentes" collapsed={collapsed} />
 
             <div style={{ margin: '10px 0' }} />
 

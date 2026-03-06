@@ -528,7 +528,7 @@ export class BookingsService {
     const client = this.supabaseService.getOptionalClient(accessToken);
     const { data, error } = await client
       .from('turnos')
-      .select('id, id_cancha, fecha, hora_inicio, hora_fin, estado')
+      .select('id, id_cancha, fecha, hora_inicio, hora_fin, estado, id_turno_recurrente')
       .eq('fecha', fecha)
       .neq('estado', 'cancelado');
 
@@ -572,6 +572,7 @@ export class BookingsService {
             : b.estado === 'confirmado'
               ? 'confirmed'
               : 'unknown',
+        is_recurrente: b.id_turno_recurrente != null,
       };
     });
   }

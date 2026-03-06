@@ -17,6 +17,7 @@ interface Booking {
     start_time: string;
     end_time: string;
     status: 'pending' | 'confirmed' | 'cancelled';
+    is_recurrente?: boolean;
 }
 
 interface Bloqueo {
@@ -125,7 +126,8 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     court_id: b.court_id,
                     start_time: b.start_time,
                     end_time: b.end_time || new Date(new Date(b.start_time).getTime() + turnDurationMs).toISOString(),
-                    status: b.status
+                    status: b.status,
+                    is_recurrente: !!b.is_recurrente,
                 }));
 
                 setBookings(filteredBookings);
@@ -341,6 +343,11 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                 opacity = 0.9;
                                 labelContent = <div style={{ color: '#E67E22', fontSize: '0.66rem', fontWeight: '800' }}>{state.blocked!.tipo.toUpperCase()}</div>;
                                 tooltip = state.blocked!.descripcion || `Canchas bloqueada por ${state.blocked!.tipo}`;
+                            } else if (state.occupied?.is_recurrente) {
+                                bgColor = '#EDE7F6'; // Violeta pastel
+                                opacity = 0.9;
+                                labelContent = <div style={{ color: '#7B1FA2', fontSize: '0.63rem', fontWeight: '800' }}>RECURRENTE</div>;
+                                tooltip = 'Turno recurrente';
                             } else {
                                 bgColor = '#E3F2FD'; // Celeste pastel
                                 opacity = 0.8;
