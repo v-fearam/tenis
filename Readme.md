@@ -1,125 +1,216 @@
-# Club Belgrano — Sistema de Reservas de Tenis
+# Club Belgrano — Sistema de Gestión de Canchas
 
-Plataforma de gestión de reservas de canchas y membresías para Club Belgrano (General Belgrano, Buenos Aires).
+Plataforma web para gestión de reservas de canchas, membresías y finanzas de Club Belgrano (Buenos Aires).
 
-## Stack
+**App:** https://cbtenis.vercel.app
 
-| Layer | Technology |
-|-------|-----------|
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase)
+![Vercel](https://img.shields.io/badge/Vercel-Deploy-000000?logo=vercel)
+
+---
+
+## Para socios — Cómo usar la app
+
+### Instalar en el celular
+
+La app se puede usar desde el navegador y también **instalar como una app** (sin pasar por el App Store).
+
+**Android (Chrome):**
+1. Abrir https://cbtenis.vercel.app en Chrome
+2. Tocar los tres puntitos (⋮) arriba a la derecha
+3. Tocar **"Agregar a pantalla de inicio"**
+4. Confirmar — aparece el ícono en la pantalla de inicio
+
+**iPhone (Safari):**
+1. Abrir https://cbtenis.vercel.app en Safari (no funciona con Chrome en iOS)
+2. Tocar el botón de compartir (□↑) en la barra de abajo
+3. Tocar **"Agregar a pantalla de inicio"**
+4. Confirmar — aparece el ícono en la pantalla de inicio
+
+Una vez instalada, se abre como una app normal.
+
+---
+
+### Qué se puede hacer
+
+**Sin iniciar sesión:**
+- Ver el calendario de disponibilidad de las 5 canchas
+- Hacer una reserva ingresando nombre, email y teléfono de contacto
+
+**Con sesión (socios):**
+- Reservar eligiendo compañeros socios del club
+- Ver el costo antes de confirmar
+- Ver el historial de turnos y el estado de los pagos
+- Ver el saldo de créditos del abono
+
+**Panel de administración (solo PC):**
+El usuario administrador tiene acceso a la gestión completa del club: confirmar reservas, registrar pagos, gestionar socios, ver finanzas, etc. Se recomienda usarlo desde una computadora.
+
+---
+
+## Funcionalidades principales
+
+### Para socios
+- Calendario de disponibilidad en tiempo real (5 canchas de polvo)
+- Reserva de turno: single o doble, con búsqueda de compañeros
+- Preview del costo antes de confirmar
+- Historial de turnos, pagos y créditos de abono
+- PWA instalable desde el celular (sin App Store)
+
+### Para administradores
+- Confirmación y cancelación de turnos
+- Gestión de socios, roles y membresías
+- Sistema de abonos con créditos fraccionarios
+- Turnos recurrentes con modelo de deuda propio
+- Dashboard financiero con gráfico histórico 12 meses
+- Cierre mensual automático
+- Bloqueo de canchas por eventos o mantenimiento
+- Configuración de precios en runtime
+
+---
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|------|-----------|
 | Backend | NestJS 11, TypeScript |
 | Frontend | Vite + React 19, TypeScript, React Router v7 |
-| Database | Supabase (PostgreSQL + Auth) |
-| Deployment | Vercel (both services) |
+| Base de datos | Supabase (PostgreSQL 15 + Auth) |
+| Seguridad | Supabase JWT, reCAPTCHA v3, class-validator |
+| Deploy | Vercel (SPA + Serverless) |
 
-## Features
+**Monorepo** con NPM workspaces: `backend/` y `frontend/`.
 
-### Public / Members
+---
 
-- **Booking calendar** — Visual availability grid per court and time slot, 5 clay courts
-- **2-step booking flow** — Select singles/doubles, add players (search socios or enter guests)
-- **Cost preview** — Per-player cost calculated before confirming, based on membership tier
-- **reCAPTCHA v3** — Bot protection on public booking submissions
-- **Member dashboard** — Booking history, debt overview, credit balance, membership status
-
-### Admin
-
-- **Booking management** — Confirm/cancel bookings, register payments, export data
-- **Recurring bookings** — Weekly recurring reservations with isolated debt tracking, payment registration, price recalculation, and individual session cancellation
-- **User management** — Full CRUD with roles (admin / socio / no-socio), membership assignment, booking history
-- **Membership (Abonos)** — Manage subscription types (Abono Libre, Abono x Partidos, Socio Sin Abono), assign to members, monthly close
-- **Courts (Canchas)** — Create and manage courts with hours, surface, and lighting
-- **Blocks (Bloqueos)** — Block time slots for tournaments, classes, or maintenance
-- **Finanzas** — Financial dashboard: stacked bar chart (Recharts) with 3-segment historical revenue (turnos / abonos / recurrentes), 4 stat cards for current month, trend indicator vs last close, composition breakdown
-- **Payments** — Register payments/bonifications, view unpaid debts by turno
-- **Configuration** — Pricing keys editable at runtime (`precio_no_socio`, `precio_socio_sin_abono`, `precio_socio_abonado`, `descuento_recurrente`)
-- **Dashboard** — Summary: pending bookings, monthly revenue, member debt, recurring booking debt
-
-## Pricing Model
-
-| Player type | Cost |
-|-------------|------|
-| Socio con Abono Libre | $0 |
-| Socio con Abono x Partidos (con créditos) | $0 (singles: 1 crédito, dobles: 0.5) |
-| Socio sin abono | `precio_socio_sin_abono / N jugadores` |
-| No socio / Invitado | `precio_no_socio / N jugadores` |
-
-Cost is calculated at creation, stored per player in `turno_jugadores.monto_generado`. Admin confirms → generates `pagos`. Cancel → refunds abono credits.
-
-**Recurring**: fixed price per occurrence with configurable discount (default 20%).
-
-## Project Structure
+## Estructura del proyecto
 
 ```
 /
-├── backend/          # NestJS — feature modules
-│   └── src/
-│       ├── auth/                 # Login, JWT guard, roles guard
-│       ├── users/                # User CRUD + public socio search
-│       ├── bookings/             # Booking flow + pricing engine
-│       ├── canchas/              # Court management
-│       ├── bloqueos/             # Court blocks
-│       ├── abonos/               # Membership subscriptions
-│       ├── turnos-recurrentes/   # Weekly recurring bookings
-│       ├── pagos/                # Payment registration + revenue
-│       ├── config/               # Runtime system config
-│       └── supabase/             # Supabase client (global)
-├── frontend/         # Vite + React
-│   └── src/
-│       ├── components/   # Calendar, Sidebar, shared UI
-│       ├── pages/        # Route-level pages
-│       ├── lib/          # api.ts (Bearer token), Supabase client
-│       └── index.css     # Pastel design system (CSS vars)
+├── backend/src/
+│   ├── auth/                 # JWT guard, roles guard
+│   ├── users/                # CRUD usuarios, búsqueda socios
+│   ├── bookings/             # Motor de reservas y precios
+│   ├── canchas/              # Gestión de canchas
+│   ├── bloqueos/             # Bloqueos de horarios
+│   ├── abonos/               # Membresías y cierre mensual
+│   ├── turnos-recurrentes/   # Reservas semanales recurrentes
+│   ├── pagos/                # Cobros y dashboard financiero
+│   ├── config/               # Configuración runtime
+│   └── supabase/             # Cliente global (service_role)
+│
+├── frontend/src/
+│   ├── components/           # Calendar, Sidebar, UI compartida
+│   ├── pages/                # Páginas por ruta
+│   ├── lib/                  # api.ts (Bearer token), Supabase client
+│   └── index.css             # Design system pastel (CSS variables)
+│
+├── db/
+│   ├── migrations/           # Migraciones SQL históricas (001–007)
+│   └── seeds/                # Datos de prueba
+│
 └── docs/
-    └── claude-reference.md   # Full API + DB schema reference
+    ├── claude-reference.md           # Referencia rápida API + schema
+    └── implementacion/
+        ├── arquitectura.md           # Arquitectura técnica con diagramas Mermaid
+        ├── producto.md               # Descripción de funcionalidades
+        ├── onboarding.md             # Guía de implementación para el admin del club
+        └── deploy/
+            └── install.sql           # Script SQL completo para instalación desde cero
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+## Instalación
+
+### Requisitos
 - Node.js 18+
-- Supabase project (URL + service role key)
+- Proyecto en Supabase (URL + service role key)
 
-### Setup
+### 1. Instalar dependencias
 
 ```bash
 npm install
 ```
 
+### 2. Inicializar la base de datos
+
+Ejecutar `docs/implementacion/deploy/install.sql` en el SQL Editor de Supabase.
+Incluye tablas, índices, RLS, triggers y datos básicos.
+
+### 3. Variables de entorno
+
 `backend/.env`:
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-service-role-key
-PORT=3000
+```env
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
+SUPABASE_JWT_SECRET=<jwt_secret>
+RECAPTCHA_SECRET_KEY=<google_recaptcha_v3_secret>
 FRONTEND_URL=http://localhost:5173
+PORT=3000
 ```
 
 `frontend/.env`:
-```
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+```env
 VITE_API_URL=http://localhost:3000/api
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon_key>
+VITE_RECAPTCHA_SITE_KEY=<google_recaptcha_v3_site_key>
 ```
 
+### 4. Desarrollo local
+
 ```bash
-npm run dev:backend    # NestJS on port 3000
+npm run dev:backend    # NestJS en puerto 3000
 npm run dev:frontend   # Vite dev server
 ```
 
-## Routes
+API docs disponibles en `http://localhost:3000/api/docs` (Swagger, solo en desarrollo).
 
-| Path | Access | Description |
+---
+
+## Rutas
+
+| Ruta | Acceso | Descripción |
 |------|--------|-------------|
-| `/` | Public | Booking calendar |
-| `/login` | Public | Login |
-| `/dashboard` | Member | Personal dashboard |
-| `/admin` | Admin | Booking approval |
-| `/admin/users` | Admin | User management |
-| `/admin/abonos` | Admin | Membership management |
-| `/admin/canchas` | Admin | Court management |
-| `/admin/bloqueos` | Admin | Court blocks |
-| `/admin/finanzas` | Admin | Financial dashboard (chart + stat cards) |
-| `/admin/pagos` | Admin | Payments & debt |
-| `/admin/config` | Admin | System configuration |
-| `/admin/turnos-recurrentes` | Admin | Recurring bookings |
+| `/` | Público | Calendario de reservas |
+| `/login` | Público | Inicio de sesión |
+| `/dashboard` | Socio | Panel personal |
+| `/mi-historial` | Socio | Historial de turnos y pagos |
+| `/admin` | Admin | Reservas pendientes |
+| `/admin/users` | Admin | Gestión de usuarios |
+| `/admin/abonos` | Admin | Membresías |
+| `/admin/canchas` | Admin | Canchas |
+| `/admin/bloqueos` | Admin | Bloqueos |
+| `/admin/finanzas` | Admin | Dashboard financiero |
+| `/admin/pagos` | Admin | Pagos y deudas |
+| `/admin/config` | Admin | Configuración del sistema |
+| `/admin/turnos-recurrentes` | Admin | Reservas recurrentes |
 
-For full API endpoints and DB schema see [docs/claude-reference.md](docs/claude-reference.md).
+---
+
+## Comandos útiles
+
+```bash
+npm run dev:backend                    # Backend en modo watch
+npm run dev:frontend                   # Frontend Vite
+npm run build --workspace=backend      # Build TypeScript
+npm run build --workspace=frontend     # Build Vite
+npm run test                           # Jest (backend)
+npm run lint --workspace=backend       # ESLint + Prettier
+```
+
+---
+
+## Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [docs/implementacion/arquitectura.md](docs/implementacion/arquitectura.md) | Arquitectura técnica completa con diagramas |
+| [docs/implementacion/producto.md](docs/implementacion/producto.md) | Descripción de funcionalidades |
+| [docs/implementacion/onboarding.md](docs/implementacion/onboarding.md) | Guía para el administrador del club |
+| [docs/implementacion/deploy/install.sql](docs/implementacion/deploy/install.sql) | Script SQL de instalación completa |
+| [docs/claude-reference.md](docs/claude-reference.md) | Referencia rápida de API y schema |

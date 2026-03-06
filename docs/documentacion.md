@@ -6,11 +6,67 @@ Se proponen **dos documentos principales** + ideas adicionales. Abajo detallo qu
 
 ---
 
+## 0. Script SQL de Deploy (`docs/implementacion/deploy/`)
+
+**Objetivo:** Script completo para instalar la app desde cero en una base de datos Supabase limpia.
+
+### Contenido
+
+Un único archivo `install.sql` (o varios numerados) con comentarios explicativos, que incluya:
+
+```
+1. Extensiones requeridas
+   - uuid-ossp, btree_gist, pg_trgm
+
+2. Tablas (en orden de dependencias FK)
+   - usuarios, socios, canchas, tipos_abono
+   - config_sistema, parametros_mensuales
+   - turnos, turno_jugadores, bloqueos, pagos
+   - cierres_mensuales
+   - turnos_recurrentes, movimientos_recurrentes
+
+3. Constraints y exclusiones
+   - CHECK constraints (roles, estados, tipos)
+   - GIST exclusion (turnos_no_overlap)
+   - UNIQUE constraints
+
+4. Indexes
+   - Performance indexes (19 totales)
+   - Trigram indexes para búsqueda
+
+5. Funciones y triggers
+   - handle_new_user() + trigger on_auth_user_created
+
+6. RLS policies
+   - config_sistema (read auth, all admin)
+   - cierres_mensuales (all admin)
+
+7. Datos básicos (seed)
+   - 5 canchas de polvo de ladrillo
+   - config_sistema (precios, descuentos)
+   - tipos_abono (Oro, Plata, etc.)
+```
+
+### Notas
+- Fuente: consolidación de migraciones 001-007 + config manual + tablas recurrentes (008 faltante)
+- ⚠️ La migración 008 (turnos_recurrentes, movimientos_recurrentes) no existe como archivo SQL — se creó desde Supabase SQL Editor. El script de deploy la incluirá.
+- Comentarios en español explicando cada sección
+
+---
+
 ## 1. Documentación Técnica — Arquitectura
 
 **Objetivo:** Que un desarrollador nuevo (o vos en 6 meses) pueda entender el sistema completo en < 30 minutos.
 
-### Estructura propuesta
+### Decisiones tomadas
+
+- **Audiencia**: Desarrollador que va a mantener el código
+- **Diagramas**: Mermaid (se renderizan en GitHub/VS Code)
+- **Endpoints**: Solo listar módulo + cantidad
+- **ADRs**: No incluir (elimina extensión innecesaria)
+- **Diagramas de secuencia**: Solo del flujo crítico de reserva (create → confirm → payment)
+
+### Estructura definida
 
 ```
 1. Visión general
@@ -18,18 +74,17 @@ Se proponen **dos documentos principales** + ideas adicionales. Abajo detallo qu
    - Stack tecnológico (NestJS 11, React 19, Supabase/Postgres, Vercel)
    - Monorepo con NPM workspaces
 
-2. Diagrama de arquitectura de alto nivel
+2. Diagrama de arquitectura de alto nivel (Mermaid)
    - Frontend (Vite/React) → API REST → Backend (NestJS) → Supabase (Postgres + Auth)
    - Vercel deploys (frontend SPA + backend serverless)
-   - Diagrama de flujo: Usuario → CDN/Vercel → React SPA → /api/* → NestJS → Supabase
 
 3. Backend — Módulos y responsabilidades
-   - Diagrama de módulos NestJS (10 módulos feature + 1 global)
+   - 11 módulos (abonos, auth, bloqueos, bookings, canchas, common, config, pagos/finanzas, supabase, turnos-recurrentes, users)
    - Auth flow: Supabase JWT → JwtAuthGuard → RolesGuard → @Roles()
-   - Tabla de endpoints por módulo (resumen, no el detalle completo)
-   - Capa de seguridad: reCAPTCHA v3, guards, validación DTO con class-validator
+   - Tabla resumen: módulo + cantidad de endpoints
+   - Capa de seguridad: reCAPTCHA v3, guards, validación DTO
 
-4. Modelo de datos
+4. Modelo de datos (Mermaid ER)
    - Diagrama ER (12 tablas, relaciones FK)
    - Tablas clave con descripción de 1 línea cada una
    - Decisiones de diseño notables:
@@ -38,7 +93,7 @@ Se proponen **dos documentos principales** + ideas adicionales. Abajo detallo qu
      * cierres_mensuales como snapshot mensual
 
 5. Lógica de negocio crítica
-   - Flujo de reserva: create → pending → confirm → genera pagos
+   - Diagrama de secuencia: flujo de reserva (create → pending → confirm → genera pagos)
    - Sistema de precios: 3 tarifas + split por cantidad de jugadores
    - Abonos: consumo de créditos (1 single, 0.5 double), fallback si agotados
    - Turnos recurrentes: modelo de deuda, comprometido, saldo
@@ -53,145 +108,101 @@ Se proponen **dos documentos principales** + ideas adicionales. Abajo detallo qu
 7. Deployment y DevOps
    - Vercel config (frontend SPA rewrite, backend catch-all)
    - Variables de entorno necesarias
-   - PWA: manifest + service worker
-
-8. Decisiones de arquitectura (ADRs resumidos)
-   - Por qué Supabase y no Firebase
-   - Por qué CSS vanilla y no Tailwind
-   - Por qué monorepo con workspaces
-   - Por qué no ORM (queries directas a Supabase client)
+   - PWA: manifest
 ```
 
-### Formato sugerido
+### Formato
 
 - **Markdown** (vive en el repo, se versiona con git)
 - Diagramas en **Mermaid** (se renderizan en GitHub/VS Code)
-- Nombre: `docs/arquitectura.md`
-
-### Preguntas antes de escribirlo
-
-1. **¿Querés que incluya diagramas Mermaid** (se renderizan en GitHub) o preferís algo que se pueda exportar a imagen fácilmente?
-2. **¿Nivel de detalle en endpoints?** ¿Solo listar módulo + cantidad, o incluir cada ruta con método HTTP?
-3. **¿Incluir las decisiones de arquitectura (ADRs)?** Son útiles para entender los "por qué", pero agregan extensión.
-4. **¿Audiencia?** ¿Es para un dev que va a mantener el código, o también para alguien evaluando si adoptar el proyecto?
-5. **¿Querés incluir un diagrama de secuencia** del flujo de reserva completo (create → confirm → payment)? Es el corazón del sistema.
+- Nombre: `docs/implementacion/arquitectura.md`
 
 ---
 
-## 2. Presentación Comercial (PPT / Pitch Deck)
+## 2. Documento de Producto (`docs/implementacion/producto.md`)
 
-**Objetivo:** Vender la app a clubes de tenis, paddle u otros deportes con canchas.
+**Objetivo:** Describir qué hace la app, para quién, y sus funcionalidades clave.
 
-### Estructura propuesta (10-12 slides)
+### Decisiones tomadas
+
+- **Formato**: Markdown (en el repo, no Google Slides)
+- **Modelo de negocio**: SaaS mensual (no hablar de precios por ahora)
+- **Screenshots**: No incluir (se desactualizan)
+- **Audiencia**: Por ahora solo Club Belgrano, luego se adaptaría para otros
+- **Competencia**: No mencionar por ahora
+
+### Estructura definida
 
 ```
-Slide 1 — Portada
+1. Portada / Resumen
    "Sistema de Gestión de Canchas — Club Belgrano"
-   Subtítulo: Reservas, membresías y finanzas en una sola plataforma
+   Reservas, membresías y finanzas en una sola plataforma
 
-Slide 2 — El problema
-   - Reservas por WhatsApp/teléfono → errores, doble booking, pérdida de tiempo
-   - Cobros manuales → deuda invisible, socios morosos sin control
-   - Sin visibilidad de ocupación → canchas vacías, ingresos perdidos
-   - Abonos en papel/Excel → imposible trackear créditos
-
-Slide 3 — La solución
+2. La solución
    - App web mobile-first (funciona como app nativa, se instala en el celular)
-   - Reservas en 3 clicks con calendario visual en tiempo real
+   - Reservas en pocos clicks con calendario visual en tiempo real
    - Gestión integral: reservas + cobros + abonos + recurrentes
 
-Slide 4 — Funcionalidades clave (vista socio)
-   - 📅 Calendario de disponibilidad en tiempo real
-   - 🎾 Reserva rápida (single/doble, con invitados)
-   - 💳 Historial personal con estado de pagos y deuda
-   - 📱 PWA instalable (sin bajar de App Store)
+3. Funcionalidades — Vista socio
+   - Calendario de disponibilidad en tiempo real
+   - Reserva rápida (single/doble, con invitados)
+   - Historial personal con estado de pagos y deuda
+   - PWA instalable (sin bajar de App Store)
 
-Slide 5 — Funcionalidades clave (vista admin)
-   - 👥 Gestión de socios y no-socios con roles
-   - 💰 Dashboard financiero: ingresos por turnos, abonos, recurrentes
-   - 🔒 Bloqueo de canchas (mantenimiento, eventos)
-   - 📊 Cierre mensual automático con snapshots históricos
+4. Funcionalidades — Vista admin
+   - Gestión de socios y no-socios con roles
+   - Dashboard financiero: ingresos por turnos, abonos, recurrentes
+   - Bloqueo de canchas (mantenimiento, eventos)
+   - Cierre mensual automático con snapshots históricos
 
-Slide 6 — Sistema de abonos
+5. Sistema de abonos
    - Tipos de abono configurables (Oro 8 partidos, Plata 4, etc.)
    - Créditos fraccionarios: doble consume 0.5, single consume 1
    - Fallback automático a tarifa sin abono cuando se agotan
    - Cierre mensual: reporte + reset automático
 
-Slide 7 — Turnos recurrentes
+6. Turnos recurrentes
    - Grupos que juegan siempre el mismo día/hora
    - Descuento configurable (ej: 20%)
    - Control de deuda y pagos por grupo
    - Cancelación individual o masiva con recálculo automático
 
-Slide 8 — Precios inteligentes
+7. Precios inteligentes
    - 3 tarifas: no-socio, socio sin abono, socio con abono
    - Split automático del costo entre jugadores
    - Preview del costo antes de confirmar
    - Todo configurable desde el panel de admin
 
-Slide 9 — Tecnología y seguridad
-   - ☁️ Cloud-native: cero servidores que mantener
-   - 🔐 Autenticación segura (Supabase Auth + JWT)
-   - 🤖 Protección anti-bots (Google reCAPTCHA v3)
-   - 📱 PWA: funciona offline-capable, se instala como app
+8. Tecnología y seguridad
+   - Cloud-native: cero servidores que mantener
+   - Autenticación segura (Supabase Auth + JWT)
+   - Protección anti-bots (Google reCAPTCHA v3)
+   - PWA: se instala como app
 
-Slide 10 — Casos de uso / Testimonios
-   - Club con 4 canchas y 200 socios
-   - Reducción de conflictos de horarios a 0
-   - Visibilidad total de ingresos mensuales
-   - Admin gasta 10 min/día en vez de 2 horas
-
-Slide 11 — Adaptable a tu club
-   - Multi-cancha (ilimitadas)
-   - Configurable: precios, horarios, tipos de abono
-   - Escalable: funciona para 1 cancha o 20
-   - Adaptable: tenis, paddle, fútbol, cualquier deporte con cancha
-
-Slide 12 — Contacto / Próximos pasos
+9. Contacto / Próximos pasos
    - Demo en vivo
-   - Precio / modelo de negocio
-   - Implementación en X días
 ```
-
-### Formato sugerido
-
-- **Google Slides o PowerPoint** — exportable a PDF
-- Diseño: limpio, colores pastel consistentes con la app (azul #0A84FF, naranja #FF9F0A, fondos claros)
-- Screenshots reales de la app (calendario, booking form, admin dashboard, historial de socio)
-- Se puede generar el contenido en **Markdown** primero y después pasarlo a slides
-
-### Preguntas antes de armarlo
-
-1. **¿Modelo de negocio?** ¿SaaS mensual, licencia única, implementación + soporte? Esto cambia el slide final.
-2. **¿Tenés screenshots de la app funcionando?** Son clave para el PPT. Si no, ¿querés que diseñe mockups descriptivos?
-3. **¿Audiencia?** ¿Directivos de club que no saben nada de tecnología, o gente más técnica?
-4. **¿Querés incluir pricing en el deck** o lo manejás aparte?
-5. **¿Nombre comercial del producto?** "Sistema Club Belgrano" es específico. ¿Tiene un nombre genérico tipo "CanchaApp", "CourtManager", etc.?
-6. **¿Competencia?** ¿Sabés contra qué compite? (MiTurno, TuCancha, PlayTomic, etc.) Podríamos incluir un diferenciador.
 
 ---
 
 ## 3. Ideas adicionales
 
-### 3a. README profesional (público)
-Si vas a vender o mostrar el proyecto, el README actual es básico. Un README con:
+### 3a. README profesional (público) — APROBADO
+Mejorar el README actual con:
 - Logo/banner
 - Features con iconos
-- Screenshots/GIFs
 - Arquitectura resumida
 - Quick start
 - Badge de tech stack
 
-Esto sirve tanto para venta como para portfolio.
-
-### 3b. Documentación de API (Swagger/OpenAPI)
+### 3b. Documentación de API (Swagger/OpenAPI) — APROBADO
 NestJS soporta `@nestjs/swagger` casi sin esfuerzo. Genera documentación interactiva de la API automáticamente. Esto:
 - Sirve como doc técnica viva (siempre actualizada)
-- Impresiona a clientes técnicos
 - Facilita integración si algún club quiere conectar su sistema
 
-### 3c. Onboarding Guide (para el club que compra)
+### 3c. Onboarding Guide — APROBADO
+Ubicación: `docs/implementacion/onboarding.md`
+
 Un doc paso a paso para el admin del club:
 1. Primer login
 2. Configurar canchas
@@ -200,49 +211,48 @@ Un doc paso a paso para el admin del club:
 5. Dar de alta socios
 6. Primera reserva
 
-Esto reduce soporte post-venta y es un diferenciador vs la competencia.
+Reduce soporte post-venta.
 
-### 3d. Roadmap público
-Lista de features futuras (priorizadas):
-- Notificaciones push (recordatorio de turno)
-- Pagos online (MercadoPago/Stripe)
-- Estadísticas de ocupación por cancha/horario
-- App nativa (si en algún momento escala)
-- Multi-club (white-label)
+### ~~3d. Roadmap público~~ — DESCARTADO
 
-Mostrar roadmap genera confianza de que el producto tiene futuro.
-
-### 3e. Landing page
-Una single-page que funcione como sitio comercial del producto. Con la misma estética pastel de la app. Secciones: Hero → Features → Screenshots → Pricing → Contacto. Se puede hacer como otra ruta en el mismo frontend o un sitio aparte.
+### ~~3e. Landing page~~ — DESCARTADO
 
 ---
 
-## 4. Plan de acción sugerido
+## 4. Plan de acción
 
-| Prioridad | Documento | Esfuerzo | Impacto |
-|-----------|-----------|----------|---------|
-| 🔴 Alta | Arquitectura técnica | 2-3 horas | Base para todo lo demás |
-| 🔴 Alta | Contenido del pitch deck (MD) | 1-2 horas | Necesario para vender |
-| 🟡 Media | Swagger/OpenAPI | 30 min setup | Doc viva de API |
-| 🟡 Media | Onboarding guide | 1 hora | Reduce soporte |
-| 🟢 Baja | README profesional | 1 hora | Portfolio + primera impresión |
-| 🟢 Baja | Roadmap | 30 min | Genera confianza |
-| 🟢 Baja | Landing page | 3-4 horas | Canal de venta |
+| Prioridad | Documento | Estado |
+|-----------|-----------|--------|
+| 🔴 Alta | Script SQL de deploy (`docs/implementacion/deploy/`) | Pendiente |
+| 🔴 Alta | Arquitectura técnica (`docs/implementacion/arquitectura.md`) | Pendiente |
+| 🔴 Alta | Documento de producto (`docs/implementacion/producto.md`) | Pendiente |
+| 🟡 Media | Swagger/OpenAPI (setup `@nestjs/swagger`) | Pendiente |
+| 🟡 Media | Onboarding guide (`docs/implementacion/onboarding.md`) | Pendiente |
+| 🟢 Baja | README profesional | Pendiente |
 
 ---
 
 ## 5. Decisiones pendientes (resumen)
 
-Antes de escribir cualquier documento, idealmente definir:
+### Resueltas
+- ~~Audiencia del doc técnico~~ → Dev mantenedor
+- ~~Mermaid para diagramas~~ → Sí
+- ~~Formato producto~~ → Markdown (`docs/implementacion/producto.md`)
+- ~~Pricing en el deck~~ → No por ahora
+- ~~PWA offline~~ → No prometer (no implementado)
+- ~~Modelo de negocio~~ → SaaS mensual (sin hablar de precios aún)
+- ~~Screenshots~~ → No incluir (se desactualizan)
+- ~~Competencia~~ → No mencionar por ahora
+- ~~Roadmap público~~ → No
+- ~~Landing page~~ → No
+- ~~README~~ → Sí, mejorar
+- ~~Swagger~~ → Sí, generar
+- ~~Onboarding~~ → Sí, en `docs/implementacion/onboarding.md`
 
-1. **¿Nombre comercial del producto?** (afecta todo)
-2. **¿Modelo de negocio?** SaaS vs licencia vs custom
-3. **¿Audiencia del doc técnico?** Dev nuevo vs evaluador externo
-4. **¿Screenshots disponibles?** Clave para el PPT
-5. **¿Mermaid está OK para diagramas?** O preferís Draw.io/Figma exportable
-6. **¿Querés que genere el PPT como Markdown** (y vos lo pasás a Slides) o preferís otro formato?
-7. **¿Algún feature que quieras destacar o esconder** en el material comercial?
+### Pendientes
+- Ninguna. Todas las decisiones están tomadas.
+- Nombre del producto: "Sistema de Gestión de Canchas — Club Belgrano" (se puede cambiar después)
 
 ---
 
-*Leé tranquilo este análisis y decime qué ajustar. Cuando estés listo, arranco con los documentos que elijas.*
+*Próximo paso: arrancar con la generación de los 5 documentos del plan de acción.*

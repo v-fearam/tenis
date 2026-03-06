@@ -23,7 +23,10 @@
       "Bash(taskkill:*)",
       "mcp__supabase__list_migrations",
       "Bash(npm run test --workspace=backend)",
-      "Bash(test -f c:/dev/tenis/README.md)"
+      "Bash(test -f c:/dev/tenis/README.md)",
+      "Bash(xargs wc -l)",
+      "Bash(wc -l /c/dev/tenis/db/migrations/*.sql /c/dev/tenis/db/seeds/*.sql /c/dev/tenis/backend/003_manual_config_table.sql)",
+      "Bash(npx vercel ls)"
     ]
   },
   "enableAllProjectMcpServers": true,
