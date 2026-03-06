@@ -116,7 +116,7 @@ export default function TurnosRecurrentes() {
     const socioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
-        api.get<Court[]>('/canchas').then(setCourts).catch(() => {});
+        api.get<Court[]>('/canchas').then(setCourts).catch(() => { });
         fetchDeudaTotal();
     }, []);
 
@@ -128,7 +128,7 @@ export default function TurnosRecurrentes() {
         try {
             const data = await api.get<{ deuda: number; comprometido: number }>('/turnos-recurrentes/deuda-total');
             setDeudaTotal(data);
-        } catch {}
+        } catch { }
     }
 
     async function fetchRecurrencias() {
@@ -168,7 +168,7 @@ export default function TurnosRecurrentes() {
                 const data = await api.get<Socio[]>(`/users/search-socios?q=${encodeURIComponent(socioQuery)}`);
                 setSocioResults(data || []);
                 setShowSocioDropdown(true);
-            } catch {}
+            } catch { }
         }, 300);
     }, [socioQuery]);
 
@@ -298,7 +298,7 @@ export default function TurnosRecurrentes() {
             {/* Filter */}
             <div style={{ marginBottom: '16px', display: 'flex', gap: '6px' }}>
                 {(['activa', 'cancelada', ''] as const).map(e => (
-                    <button key={e} onClick={() => { setFilterEstado(e); pagination.reset(); }}
+                    <button key={e} onClick={() => { setFilterEstado(e); pagination.firstPage(); }}
                         style={{
                             fontSize: '0.83rem', padding: '6px 14px', borderRadius: 20, border: '1.5px solid',
                             borderColor: filterEstado === e ? 'var(--brand-blue)' : 'var(--border)',
@@ -362,7 +362,14 @@ export default function TurnosRecurrentes() {
             )}
 
             <div style={{ marginTop: '16px' }}>
-                <PaginationControls pagination={pagination} />
+                <PaginationControls
+                    meta={pagination.meta}
+                    onPageChange={pagination.goToPage}
+                    onNext={pagination.nextPage}
+                    onPrevious={pagination.previousPage}
+                    onFirst={pagination.firstPage}
+                    onLast={pagination.lastPage}
+                />
             </div>
 
             {/* MODAL */}
