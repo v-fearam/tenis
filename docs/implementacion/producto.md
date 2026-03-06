@@ -44,7 +44,7 @@ App web diseñada para que los socios reserven canchas desde el celular en pocos
 - Alta de socios, no-socios y administradores
 - Asignación de abonos y créditos
 - Historial de turnos y pagos por usuario
-- Bloqueo de acceso (ok_club)
+- Bloqueo de acceso
 
 **Calendario y reservas**
 - Vista completa de todas las canchas

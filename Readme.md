@@ -36,7 +36,7 @@ La app funciona desde el navegador y también se puede **instalar como una app**
 
 **Panel de administración:**
 Gestión completa del club: confirmar reservas, registrar pagos, gestionar socios, ver finanzas, etc.
-Se recomienda usarlo desde una computadora.
+Solo funciona desde una computadora.
 
 ---
 
