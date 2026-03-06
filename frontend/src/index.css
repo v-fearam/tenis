@@ -657,3 +657,322 @@ body {
   justify-content: flex-end;
 }
 
+
+/* =====================================================
+   SOCIO HISTORIAL — mobile-first styles
+   ===================================================== */
+
+.historial-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.historial-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.historial-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.historial-back-btn:hover {
+  background: var(--bg-main);
+}
+
+.historial-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--brand-blue);
+  margin: 0;
+}
+
+/* Deuda card — sticky on mobile */
+.historial-deuda-card {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  box-shadow: var(--shadow-sm);
+}
+
+.historial-deuda-card.has-deuda {
+  background: #FDEDEC;
+  border-color: #E74C3C44;
+}
+
+.historial-deuda-card.sin-deuda {
+  background: #EAFAF1;
+  border-color: #27AE6044;
+}
+
+.historial-deuda-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #C0392B;
+}
+
+.historial-deuda-amount {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #C0392B;
+}
+
+.historial-sin-deuda {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1E8449;
+}
+
+/* Filters */
+.historial-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+
+.historial-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 130px;
+}
+
+.historial-filter-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.4px;
+}
+
+.historial-date-input {
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  outline: none;
+  min-height: 44px;
+  box-sizing: border-box;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+.historial-filter-btn {
+  padding: 9px 18px;
+  background: var(--brand-blue);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.historial-filter-btn:hover {
+  opacity: 0.9;
+}
+
+/* Loading / Empty */
+.historial-loading,
+.historial-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+@keyframes historial-spin {
+  to { transform: rotate(360deg); }
+}
+
+.historial-spinner {
+  animation: historial-spin 1s linear infinite;
+}
+
+/* Turn cards */
+.historial-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.historial-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.historial-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  min-height: 64px;
+}
+
+.historial-card-header:hover {
+  background: var(--bg-main);
+}
+
+.historial-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.historial-card-fecha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.historial-card-date {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.historial-card-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.historial-card-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.historial-card-cancha {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.historial-card-tipo {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--bg-main);
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.historial-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.historial-card-monto {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.historial-estado-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.historial-chevron {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+/* Detail panel */
+.historial-card-detail {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-main);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.historial-detail-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.historial-detail-row {
+  display: flex;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.historial-detail-key {
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.historial-detail-val {
+  color: var(--text-main);
+}
+
+/* Responsive tweaks */
+@media (max-width: 400px) {
+  .historial-estado-chip {
+    display: none;
+  }
+  .historial-card-monto {
+    font-size: 0.85rem;
+  }
+}

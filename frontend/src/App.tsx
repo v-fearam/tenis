@@ -13,6 +13,7 @@ import AdminLayout from './components/AdminLayout';
 import AdminBloqueos from './pages/AdminBloqueos';
 import AdminFinance from './pages/AdminFinance';
 import AdminAbonos from './pages/AdminAbonos';
+import SocioHistorial from './pages/SocioHistorial';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
 
@@ -29,6 +30,11 @@ function App() {
               </ProtectedRoute>
             } />
             <Route path="/" element={<Reserve />} />
+            <Route path="/mi-historial" element={
+              <ProtectedRoute>
+                <SocioHistorial />
+              </ProtectedRoute>
+            } />
             {/* ADMIN ROUTES WITH PERSISTENT SIDEBAR */}
             <Route element={
               <ProtectedRoute requiredRole="admin">
@@ -42,6 +48,7 @@ function App() {
               <Route path="/admin/bloqueos" element={<AdminBloqueos />} />
               <Route path="/admin/finanzas" element={<AdminFinance />} />
               <Route path="/admin/abonos" element={<AdminAbonos />} />
+              <Route path="/admin/usuarios/:id/historial" element={<SocioHistorial />} />
             </Route>
           </Routes>
         </AuthProvider>

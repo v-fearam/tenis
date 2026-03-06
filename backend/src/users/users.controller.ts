@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -44,6 +45,30 @@ export class UsersController {
     return this.usersService.getDashboardData(userId, req.accessToken);
   }
 
+  @Get('me/history')
+  getMyHistory(
+    @CurrentUser('id') userId: string,
+    @Query() query: HistoryQueryDto,
+    @Req() req: any,
+  ) {
+    return this.usersService.getHistory(userId, query, req.accessToken);
+  }
+
+  @Get('me/history/:turnoId/detail')
+  getMyHistoryDetail(
+    @CurrentUser('id') userId: string,
+    @Param('turnoId', ParseUUIDPipe) turnoId: string,
+    @Query('turnoJugadorId', ParseUUIDPipe) turnoJugadorId: string,
+    @Req() req: any,
+  ) {
+    return this.usersService.getHistoryDetail(
+      userId,
+      turnoId,
+      turnoJugadorId,
+      req.accessToken,
+    );
+  }
+
   @Get('count')
   @UseGuards(RolesGuard)
   @Roles('admin')
@@ -71,6 +96,34 @@ export class UsersController {
   @Roles('admin')
   findAll(@Query() paginationDto: PaginationDto, @Req() req: any) {
     return this.usersService.findAll(paginationDto, req.accessToken);
+  }
+
+  @Get(':id/history')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  getUserHistory(
+    @Param('id', ParseUUIDPipe) userId: string,
+    @Query() query: HistoryQueryDto,
+    @Req() req: any,
+  ) {
+    return this.usersService.getHistory(userId, query, req.accessToken);
+  }
+
+  @Get(':id/history/:turnoId/detail')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  getUserHistoryDetail(
+    @Param('id', ParseUUIDPipe) userId: string,
+    @Param('turnoId', ParseUUIDPipe) turnoId: string,
+    @Query('turnoJugadorId', ParseUUIDPipe) turnoJugadorId: string,
+    @Req() req: any,
+  ) {
+    return this.usersService.getHistoryDetail(
+      userId,
+      turnoId,
+      turnoJugadorId,
+      req.accessToken,
+    );
   }
 
   @Get(':id')

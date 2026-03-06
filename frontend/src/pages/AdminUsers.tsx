@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
-import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff, AlertCircle, History } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -20,6 +21,7 @@ export default function AdminUsers() {
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
+  const navigate = useNavigate();
   const pagination = usePagination();
 
   // Form state
@@ -281,6 +283,13 @@ export default function AdminUsers() {
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                      <button
+                        onClick={() => navigate(`/admin/usuarios/${user.id}/historial`)}
+                        title="Ver historial"
+                        style={iconBtnStyle}
+                      >
+                        <History size={15} />
+                      </button>
                       <button
                         onClick={() => openEditModal(user)}
                         title="Editar"

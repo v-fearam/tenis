@@ -112,12 +112,18 @@ export default function AdminDashboard() {
     const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
 
     const [dateFrom, setDateFrom] = useState(() => {
-        return todayAR();
+        const tz = 'America/Argentina/Buenos_Aires';
+        const now = new Date();
+        const year = parseInt(now.toLocaleDateString('en-CA', { timeZone: tz, year: 'numeric' }));
+        const month = parseInt(now.toLocaleDateString('en-CA', { timeZone: tz, month: 'numeric' })) - 1;
+        return new Date(year, month, 1, 12, 0, 0).toLocaleDateString('en-CA', { timeZone: tz });
     });
     const [dateTo, setDateTo] = useState(() => {
-        const inDate = new Date();
-        inDate.setDate(inDate.getDate() + 30);
-        return new Date(inDate.getTime()).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+        const tz = 'America/Argentina/Buenos_Aires';
+        const now = new Date();
+        const year = parseInt(now.toLocaleDateString('en-CA', { timeZone: tz, year: 'numeric' }));
+        const month = parseInt(now.toLocaleDateString('en-CA', { timeZone: tz, month: 'numeric' })) - 1;
+        return new Date(year, month + 1, 0, 12, 0, 0).toLocaleDateString('en-CA', { timeZone: tz });
     });
 
     // Debounce filter name for server-side search

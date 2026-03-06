@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
+import { Link } from 'react-router-dom';
 import Calendar from '../components/Calendar';
 import BookingForm from '../components/BookingForm';
 import { Toast, type ToastType } from '../components/Toast';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Calendar as CalendarIcon, Wallet, CreditCard } from 'lucide-react';
+import { Calendar as CalendarIcon, Wallet, CreditCard, History } from 'lucide-react';
 import { formatYYYYMMDDtoDDMMYYYY, formatTimeToAR } from '../lib/dateUtils';
 import '../index.css';
 import logo from '../assets/logo.jpg';
@@ -44,6 +45,7 @@ export default function Reserve() {
     const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3 });
     const [refreshKey, setRefreshKey] = useState(0);
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+    const [deudaTotal, setDeudaTotal] = useState<number | null>(null);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -68,8 +70,12 @@ export default function Reserve() {
         const fetchDashboard = async () => {
             if (!user) return;
             try {
-                const data = await api.get<DashboardData>('/users/me/dashboard');
+                const [data, histData] = await Promise.all([
+                    api.get<DashboardData>('/users/me/dashboard'),
+                    api.get<{ deuda_total: number }>('/users/me/history?pageSize=1'),
+                ]);
                 setDashboard(data);
+                setDeudaTotal(histData.deuda_total);
             } catch (e) {
                 console.error('Error fetching dashboard data');
             }
@@ -243,6 +249,28 @@ export default function Reserve() {
                             )}
                         </div>
                     )}
+
+                    {/* Historial link + subtle debt indicator */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Link
+                            to="/mi-historial"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '5px',
+                                padding: '5px 10px', borderRadius: 'var(--radius-sm)',
+                                background: 'var(--bg-main)', border: '1px solid var(--border)',
+                                fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-muted)',
+                                textDecoration: 'none', whiteSpace: 'nowrap',
+                            }}
+                        >
+                            <History size={14} />
+                            Mi historial
+                        </Link>
+                        {deudaTotal !== null && deudaTotal > 0 && (
+                            <span style={{ fontSize: '0.75rem', color: '#C0392B', fontWeight: '600' }}>
+                                Deuda: ${deudaTotal.toLocaleString('es-AR')}
+                            </span>
+                        )}
+                    </div>
 
                     {/* Separator */}
                     <div style={{ flex: 1 }} />

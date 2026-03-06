@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../supabase/supabase.service';
 import { UpdateUserDto, UpdateSocioDto, CreateUserDto } from './dto/user.dto';
 import { PaginationDto, PaginatedResponseDto } from '../common/dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
 
 @Injectable()
 export class UsersService {
@@ -369,5 +370,116 @@ export class UsersService {
       isSocio,
       ok_club: okClub,
     };
+  }
+
+  async getHistory(userId: string, query: HistoryQueryDto, accessToken: string) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+    const page = query.page || 1;
+    const pageSize = query.pageSize || this.defaultPageSize;
+    const offset = (page - 1) * pageSize;
+
+    // Default date range: last 2 months → next 30 days (includes upcoming confirmed bookings)
+    const today = new Date();
+    const twoMonthsAgo = new Date(today);
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    const thirtyDaysAhead = new Date(today);
+    thirtyDaysAhead.setDate(thirtyDaysAhead.getDate() + 30);
+    const fechaHasta = query.fecha_hasta || thirtyDaysAhead.toISOString().slice(0, 10);
+    const fechaDesde = query.fecha_desde || twoMonthsAgo.toISOString().slice(0, 10);
+
+    // 1. Deuda total (sin límite de fecha)
+    const { data: debtData } = await client
+      .from('turno_jugadores')
+      .select('monto_generado, turnos!inner(estado)')
+      .eq('id_persona', userId)
+      .eq('estado_pago', 'pendiente')
+      .gt('monto_generado', 0)
+      .eq('turnos.estado', 'confirmado');
+
+    const deuda_total =
+      debtData?.reduce((sum: number, d: any) => sum + Number(d.monto_generado), 0) ?? 0;
+
+    // 2. Historial paginado (solo confirmados)
+    const { data, count, error } = await client
+      .from('turno_jugadores')
+      .select(
+        `
+        id, monto_generado, estado_pago, uso_abono,
+        turnos!inner(id, fecha, hora_inicio, hora_fin, tipo_partido,
+          canchas(nombre)
+        )
+      `,
+        { count: 'exact' },
+      )
+      .eq('id_persona', userId)
+      .eq('turnos.estado', 'confirmado')
+      .gte('turnos.fecha', fechaDesde)
+      .lte('turnos.fecha', fechaHasta)
+      .order('fecha', { referencedTable: 'turnos', ascending: false })
+      .order('hora_inicio', { referencedTable: 'turnos', ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const items = (data || []).map((row: any) => ({
+      turno_jugador_id: row.id,
+      turno_id: row.turnos?.id,
+      fecha: row.turnos?.fecha,
+      hora_inicio: row.turnos?.hora_inicio,
+      hora_fin: row.turnos?.hora_fin,
+      cancha_nombre: row.turnos?.canchas?.nombre,
+      tipo_partido: row.turnos?.tipo_partido,
+      monto_generado: Number(row.monto_generado),
+      estado_pago: row.estado_pago,
+      uso_abono: row.uso_abono,
+    }));
+
+    return {
+      deuda_total,
+      turnos: PaginatedResponseDto.create(items, page, pageSize, count || 0),
+    };
+  }
+
+  async getHistoryDetail(
+    userId: string,
+    turnoId: string,
+    turnoJugadorId: string,
+    accessToken: string,
+  ) {
+    const client = this.supabaseService.getAuthenticatedClient(accessToken);
+
+    // Co-jugadores del turno
+    const { data: players, error: playersError } = await client
+      .from('turno_jugadores')
+      .select('tipo_persona, nombre_invitado, usuarios(nombre)')
+      .eq('id_turno', turnoId)
+      .neq('id_persona', userId);
+
+    if (playersError) throw playersError;
+
+    // Info de pago del usuario actual (si existe)
+    const { data: pagos } = await client
+      .from('pagos')
+      .select('fecha, medio, observacion')
+      .eq('id_turno_jugador', turnoJugadorId)
+      .eq('tipo', 'pago')
+      .order('fecha', { ascending: false })
+      .limit(1);
+
+    const jugadores = (players || []).map((p: any) => ({
+      nombre: p.nombre_invitado || p.usuarios?.nombre || 'Invitado',
+      tipo_persona: p.tipo_persona,
+    }));
+
+    const pago_info =
+      pagos && pagos.length > 0
+        ? {
+            fecha: pagos[0].fecha,
+            medio: pagos[0].medio,
+            observacion: pagos[0].observacion,
+          }
+        : null;
+
+    return { jugadores, pago_info };
   }
 }

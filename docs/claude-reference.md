@@ -18,14 +18,48 @@ Quick-lookup file to avoid re-reading controllers and querying DB schema each se
 | GET | `/users/search-socios?q=` | Public | Search active socios (minimal fields) |
 | GET | `/users/me` | JWT | Get own user details |
 | GET | `/users/me/dashboard` | JWT | Get user dashboard data |
+| GET | `/users/me/history?page=&pageSize=&fecha_desde=&fecha_hasta=` | JWT | Own turn history + deuda_total (paginated, defaults to last 2 months) |
+| GET | `/users/me/history/:turnoId/detail?turnoJugadorId=` | JWT | Detail for a specific turn (co-players + payment info) |
 | GET | `/users/count` | Admin | Get user count |
 | GET | `/users/search?q=` | Admin | Search users (full details, paginated) |
 | GET | `/users` | Admin | List all users (paginated) |
+| GET | `/users/:id/history?page=&pageSize=&fecha_desde=&fecha_hasta=` | Admin | Turn history + deuda_total for any user |
+| GET | `/users/:id/history/:turnoId/detail?turnoJugadorId=` | Admin | Turn detail for any user |
 | GET | `/users/:id` | Admin | Get user by ID |
 | POST | `/users` | Admin | Create user (auth + usuarios + socios) |
 | PATCH | `/users/:id` | Admin | Update user fields |
 | PATCH | `/users/:id/socio` | Admin | Update socio membership |
 | DELETE | `/users/:id` | Admin | Soft-delete (estado=inactivo) |
+
+#### History response shape
+```typescript
+// GET /users/me/history (or /users/:id/history)
+{
+  deuda_total: number;           // global debt (no date filter)
+  turnos: {
+    data: HistoryItem[];
+    meta: PaginationMeta;
+  };
+}
+interface HistoryItem {
+  turno_jugador_id: string;
+  turno_id: string;
+  fecha: string;                 // YYYY-MM-DD
+  hora_inicio: string;
+  hora_fin: string;
+  cancha_nombre: string;
+  tipo_partido: string;          // single | double
+  monto_generado: number;
+  estado_pago: string;           // pendiente | pagado | bonificado
+  uso_abono: boolean;
+}
+
+// GET /users/me/history/:turnoId/detail?turnoJugadorId=
+{
+  jugadores: { nombre: string; tipo_persona: string }[];
+  pago_info: { fecha: string; medio: string | null; observacion: string | null } | null;
+}
+```
 
 ### Bookings (`/api/bookings`)
 | Method | Path | Auth | Description |
