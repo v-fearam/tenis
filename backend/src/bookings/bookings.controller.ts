@@ -114,9 +114,9 @@ export class BookingsController {
 
   @Patch(':id/cancel')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @Roles('admin', 'socio', 'no-socio')
   cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.bookingsService.cancel(id, req.accessToken);
+    return this.bookingsService.cancel(id, req.accessToken, req.user);
   }
 
   @Delete('purge')

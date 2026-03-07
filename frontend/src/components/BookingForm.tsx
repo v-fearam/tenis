@@ -18,9 +18,10 @@ interface BookingFormProps {
   slot: string;
   onCancel: () => void;
   onSubmit: (data: { type: MatchType; players: Player[]; organizer_name?: string; organizer_phone?: string }) => void;
+  isSubmitting?: boolean;
 }
 
-export default function BookingForm({ courtId, slot, onCancel, onSubmit }: BookingFormProps) {
+export default function BookingForm({ courtId, slot, onCancel, onSubmit, isSubmitting }: BookingFormProps) {
   const { user, isAdmin } = useAuth();
   const [matchType, setMatchType] = useState<MatchType | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -289,10 +290,10 @@ export default function BookingForm({ courtId, slot, onCancel, onSubmit }: Booki
                 organizer_phone: organizerPhone,
               })
             })}
-            disabled={!canSubmit}
-            style={{ flex: 1, opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? 'pointer' : 'not-allowed' }}
+            disabled={!canSubmit || isSubmitting}
+            style={{ flex: 1, opacity: (canSubmit && !isSubmitting) ? 1 : 0.5, cursor: (canSubmit && !isSubmitting) ? 'pointer' : 'not-allowed' }}
           >
-            Solicitar Reserva
+            {isSubmitting ? 'Enviando...' : 'Solicitar Reserva'}
           </button>
         </div>
       </div>

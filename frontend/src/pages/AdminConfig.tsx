@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { Toast, type ToastType } from '../components/Toast';
-import { Save, Clock, Calendar as CalendarIcon, History, CreditCard } from 'lucide-react';
+import { Save, Clock, Calendar as CalendarIcon, History, CreditCard, Banknote, Phone } from 'lucide-react';
 
 interface ConfigItem {
     id: string;
@@ -88,6 +88,10 @@ export default function AdminConfig() {
                                     <Clock size={20} />
                                 ) : cfg.clave.includes('precio') ? (
                                     <CreditCard size={20} />
+                                ) : cfg.clave.includes('alias') ? (
+                                    <Banknote size={20} />
+                                ) : cfg.clave.includes('telefono') ? (
+                                    <Phone size={20} />
                                 ) : (
                                     <CalendarIcon size={20} />
                                 )}

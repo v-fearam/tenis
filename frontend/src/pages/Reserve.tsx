@@ -7,7 +7,7 @@ import { Toast, type ToastType } from '../components/Toast';
 import { MatchType } from '../types/booking';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { Calendar as CalendarIcon, Wallet, CreditCard, History } from 'lucide-react';
+import { Calendar as CalendarIcon, Wallet, CreditCard, History, Banknote, Copy, Check } from 'lucide-react';
 import { formatYYYYMMDDtoDDMMYYYY, formatTimeToAR } from '../lib/dateUtils';
 import '../index.css';
 import logo from '../assets/logo.jpg';
@@ -42,10 +42,13 @@ export default function Reserve() {
     const { user, isAdmin, logout } = useAuth();
     const { executeRecaptcha } = useGoogleReCaptcha();
     const [isMobile, setIsMobile] = useState(false);
-    const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3 });
+    const [config, setConfig] = useState({ blockDuration: 30, blocksPerTurn: 3, aliasBancario: '', telefonoComprobante: '' });
     const [refreshKey, setRefreshKey] = useState(0);
     const [dashboard, setDashboard] = useState<DashboardData | null>(null);
     const [deudaTotal, setDeudaTotal] = useState<number | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showPaymentInfo, setShowPaymentInfo] = useState(false);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(max-width: 767px)');
@@ -61,28 +64,16 @@ export default function Reserve() {
                 const cfg = await api.get<{ clave: string; valor: string }[]>('/config');
                 const duracion_bloque = parseInt(cfg.find(c => c.clave === 'duracion_bloque')?.valor || '30');
                 const bloques_por_turno = parseInt(cfg.find(c => c.clave === 'bloques_por_turno')?.valor || '3');
-                setConfig({ blockDuration: duracion_bloque, blocksPerTurn: bloques_por_turno });
+                const alias = cfg.find(c => c.clave === 'alias_bancario')?.valor || '';
+                const telefono = cfg.find(c => c.clave === 'telefono_comprobante')?.valor || '';
+                setConfig({ blockDuration: duracion_bloque, blocksPerTurn: bloques_por_turno, aliasBancario: alias, telefonoComprobante: telefono });
             } catch (e) {
                 console.error('Error fetching config in Reserve');
             }
         };
 
-        const fetchDashboard = async () => {
-            if (!user) return;
-            try {
-                const [data, histData] = await Promise.all([
-                    api.get<DashboardData>('/users/me/dashboard'),
-                    api.get<{ deuda_total: number }>('/users/me/history?pageSize=1'),
-                ]);
-                setDashboard(data);
-                setDeudaTotal(histData.deuda_total);
-            } catch (e) {
-                console.error('Error fetching dashboard data');
-            }
-        };
-
         fetchConfig();
-        fetchDashboard();
+        refreshDashboard();
 
         return () => {
             mediaQuery.removeEventListener('change', handleMediaChange);
@@ -90,7 +81,8 @@ export default function Reserve() {
     }, [user, refreshKey]);
 
     const handleSubmitBooking = async (details: { type: MatchType; players: Player[]; organizer_name?: string; organizer_phone?: string }) => {
-        if (!bookingData) return;
+        if (!bookingData || isSubmitting) return;
+        setIsSubmitting(true);
 
         try {
             // Generate reCAPTCHA token
@@ -134,11 +126,39 @@ export default function Reserve() {
             });
             setBookingData(null);
             setRefreshKey(prev => prev + 1);
+            await refreshDashboard();
         } catch (error: any) {
             setToast({
                 message: error.message || 'Error al procesar la reserva. Intente nuevamente.',
                 type: 'error'
             });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const refreshDashboard = async () => {
+        if (!user) return;
+        try {
+            const [data, histData] = await Promise.all([
+                api.get<DashboardData>('/users/me/dashboard'),
+                api.get<{ deuda_total: number }>('/users/me/history?pageSize=1'),
+            ]);
+            setDashboard(data);
+            setDeudaTotal(histData.deuda_total);
+        } catch (e) {
+            console.error('Error refreshing dashboard data');
+        }
+    };
+
+    const handleCancelBooking = async (bookingId: string) => {
+        try {
+            await api.patch(`/bookings/${bookingId}/cancel`, {});
+            setToast({ message: 'Reserva cancelada exitosamente.', type: 'success' });
+            setRefreshKey(prev => prev + 1);
+            await refreshDashboard();
+        } catch (error: any) {
+            setToast({ message: error.message || 'Error al cancelar la reserva.', type: 'error' });
         }
     };
 
@@ -161,6 +181,7 @@ export default function Reserve() {
                     slot={formatTimeToAR(bookingData.slot)}
                     onCancel={() => setBookingData(null)}
                     onSubmit={handleSubmitBooking}
+                    isSubmitting={isSubmitting}
                 />
             )}
 
@@ -396,17 +417,137 @@ export default function Reserve() {
             <main className="animate-slide-up">
                 <section>
                     <div className="card glass reserve-calendar-card">
-                        <h2 className="reserve-calendar-title">
-                            Reservar Cancha
-                        </h2>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <h2 className="reserve-calendar-title" style={{ margin: 0 }}>
+                                Reservar Cancha
+                            </h2>
+                            {config.aliasBancario && (
+                                <button
+                                    onClick={() => setShowPaymentInfo(true)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                        padding: '3px 8px', borderRadius: 6,
+                                        background: 'transparent', border: '1px solid var(--border)',
+                                        fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-muted)',
+                                        cursor: 'pointer', whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    <Banknote size={12} />
+                                    Datos de pago
+                                </button>
+                            )}
+                        </div>
 
                         <Calendar
                             onConfirm={(courtId, slot) => setBookingData({ courtId, slot })}
+                            onCancelBooking={handleCancelBooking}
+                            currentUserId={user?.id || null}
                             refreshKey={refreshKey}
                         />
                     </div>
                 </section>
             </main>
+            {/* Payment Info Modal */}
+            {showPaymentInfo && (
+                <div
+                    onClick={() => { setShowPaymentInfo(false); setCopiedField(null); }}
+                    style={{
+                        position: 'fixed', inset: 0, zIndex: 9999,
+                        background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(3px)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '16px',
+                    }}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: 'white', borderRadius: 'var(--radius-lg)',
+                            padding: '24px', maxWidth: '360px', width: '100%',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                                Datos para transferencia
+                            </h3>
+                            <button
+                                onClick={() => { setShowPaymentInfo(false); setCopiedField(null); }}
+                                style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    fontSize: '1.2rem', color: 'var(--text-muted)', padding: '4px',
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Alias */}
+                        <div style={{ marginBottom: '14px' }}>
+                            <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Alias bancario
+                            </label>
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px',
+                                padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                                background: 'var(--bg-main)', border: '1px solid var(--border)',
+                            }}>
+                                <span style={{ flex: 1, fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)', fontFamily: 'monospace' }}>
+                                    {config.aliasBancario}
+                                </span>
+                                <button
+                                    onClick={() => { navigator.clipboard.writeText(config.aliasBancario); setCopiedField('alias'); setTimeout(() => setCopiedField(null), 2000); }}
+                                    style={{
+                                        background: copiedField === 'alias' ? '#E8F5E9' : 'transparent',
+                                        border: '1px solid ' + (copiedField === 'alias' ? '#C8E6C9' : 'var(--border)'),
+                                        borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '3px',
+                                        fontSize: '0.72rem', color: copiedField === 'alias' ? '#2E7D32' : 'var(--text-muted)',
+                                    }}
+                                >
+                                    {copiedField === 'alias' ? <Check size={12} /> : <Copy size={12} />}
+                                    {copiedField === 'alias' ? 'Copiado' : 'Copiar'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Phone */}
+                        {config.telefonoComprobante && (
+                            <div style={{ marginBottom: '18px' }}>
+                                <label style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Enviar comprobante al
+                                </label>
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px',
+                                    padding: '10px 12px', borderRadius: 'var(--radius-sm)',
+                                    background: 'var(--bg-main)', border: '1px solid var(--border)',
+                                }}>
+                                    <span style={{ flex: 1, fontSize: '1rem', fontWeight: '700', color: 'var(--text-main)', fontFamily: 'monospace' }}>
+                                        {config.telefonoComprobante.replace(/(\d{4})(\d+)/, '$1 $2')}
+                                    </span>
+                                    <button
+                                        onClick={() => { navigator.clipboard.writeText(config.telefonoComprobante); setCopiedField('phone'); setTimeout(() => setCopiedField(null), 2000); }}
+                                        style={{
+                                            background: copiedField === 'phone' ? '#E8F5E9' : 'transparent',
+                                            border: '1px solid ' + (copiedField === 'phone' ? '#C8E6C9' : 'var(--border)'),
+                                            borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '3px',
+                                            fontSize: '0.72rem', color: copiedField === 'phone' ? '#2E7D32' : 'var(--text-muted)',
+                                        }}
+                                    >
+                                        {copiedField === 'phone' ? <Check size={12} /> : <Copy size={12} />}
+                                        {copiedField === 'phone' ? 'Copiado' : 'Copiar'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4, textAlign: 'center' }}>
+                            Realizá la transferencia y enviá el comprobante por WhatsApp para agilizar la confirmación del turno.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <footer
                 style={{
                     marginTop: '20px',

@@ -310,12 +310,12 @@ export class UsersService {
     let nextMatch = null;
 
     if (turnoIds.length > 0) {
-      // 2. Fetch next confirmed match from those turnos
+      // 2. Fetch next match (pendiente or confirmado) from those turnos
       const { data: turnos, error: turnosError } = await client
         .from('turnos')
-        .select('id, fecha, hora_inicio, type:tipo_partido, canchas:id_cancha (nombre)')
+        .select('id, fecha, hora_inicio, type:tipo_partido, estado, canchas:id_cancha (nombre)')
         .in('id', turnoIds)
-        .eq('estado', 'confirmado')
+        .in('estado', ['confirmado', 'pendiente'])
         .or(
           `fecha.gt.${nowDate},and(fecha.eq.${nowDate},hora_inicio.gte.${nowTime})`,
         )
@@ -387,32 +387,32 @@ export class UsersService {
     const fechaHasta = query.fecha_hasta || thirtyDaysAhead.toISOString().slice(0, 10);
     const fechaDesde = query.fecha_desde || twoMonthsAgo.toISOString().slice(0, 10);
 
-    // 1. Deuda total (sin límite de fecha)
+    // 1. Deuda total (sin límite de fecha) — incluye pendientes y confirmados
     const { data: debtData } = await client
       .from('turno_jugadores')
       .select('monto_generado, turnos!inner(estado)')
       .eq('id_persona', userId)
       .eq('estado_pago', 'pendiente')
       .gt('monto_generado', 0)
-      .eq('turnos.estado', 'confirmado');
+      .in('turnos.estado', ['confirmado', 'pendiente']);
 
     const deuda_total =
       debtData?.reduce((sum: number, d: any) => sum + Number(d.monto_generado), 0) ?? 0;
 
-    // 2. Historial paginado (solo confirmados)
+    // 2. Historial paginado (pendientes y confirmados)
     const { data, count, error } = await client
       .from('turno_jugadores')
       .select(
         `
         id, monto_generado, estado_pago, uso_abono,
-        turnos!inner(id, fecha, hora_inicio, hora_fin, tipo_partido,
+        turnos!inner(id, fecha, hora_inicio, hora_fin, tipo_partido, estado,
           canchas(nombre)
         )
       `,
         { count: 'exact' },
       )
       .eq('id_persona', userId)
-      .eq('turnos.estado', 'confirmado')
+      .in('turnos.estado', ['confirmado', 'pendiente'])
       .gte('turnos.fecha', fechaDesde)
       .lte('turnos.fecha', fechaHasta)
       .order('fecha', { referencedTable: 'turnos', ascending: false })
@@ -429,6 +429,7 @@ export class UsersService {
       hora_fin: row.turnos?.hora_fin,
       cancha_nombre: row.turnos?.canchas?.nombre,
       tipo_partido: row.turnos?.tipo_partido,
+      estado_turno: row.turnos?.estado,
       monto_generado: Number(row.monto_generado),
       estado_pago: row.estado_pago,
       uso_abono: row.uso_abono,

@@ -18,6 +18,7 @@ interface Booking {
     end_time: string;
     status: 'pending' | 'confirmed' | 'cancelled';
     is_recurrente?: boolean;
+    created_by?: string | null;
 }
 
 interface Bloqueo {
@@ -32,12 +33,15 @@ interface Bloqueo {
 
 interface CalendarProps {
     onConfirm: (courtId: number, slot: string) => void;
+    onCancelBooking?: (bookingId: string) => void;
+    currentUserId?: string | null;
     refreshKey?: number;
 }
 
-export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
+export default function Calendar({ onConfirm, onCancelBooking, currentUserId, refreshKey }: CalendarProps) {
     const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+    const [cancelTarget, setCancelTarget] = useState<Booking | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [timeSlots, setTimeSlots] = useState<string[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -128,6 +132,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     end_time: b.end_time || new Date(new Date(b.start_time).getTime() + turnDurationMs).toISOString(),
                     status: b.status,
                     is_recurrente: !!b.is_recurrente,
+                    created_by: b.created_by || null,
                 }));
 
                 setBookings(filteredBookings);
@@ -140,6 +145,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
         // Reset local selection when refreshing or changing date
         setSelectedSlot(null);
         setSelectedCourt(null);
+        setCancelTarget(null);
     }, [selectedDate, refreshKey, config.blockDuration, config.blocksPerTurn]);
 
     const isSlotSelected = (courtId: number, time: string) => {
@@ -159,7 +165,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
     // Performance Optimization: Pre-calculate maps
     const slotMap = React.useMemo(() => {
         const now = new Date();
-        const map: Record<string, { occupied?: Booking, blocked?: Bloqueo, past: boolean, closed: boolean }> = {};
+        const map: Record<string, { occupied?: Booking, blocked?: Bloqueo, past: boolean, closed: boolean, mine: boolean }> = {};
 
         timeSlots.forEach(time => {
             const [h, m] = time.split(':').map(Number);
@@ -192,15 +198,27 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                     return checkTime >= bStart && checkTime < bEnd;
                 });
 
-                map[key] = { occupied, blocked, past: isPast, closed };
+                const mine = !!currentUserId && !!occupied && occupied.created_by === currentUserId;
+                map[key] = { occupied, blocked, past: isPast, closed, mine };
             });
         });
         return map;
-    }, [courts, timeSlots, bookings, bloqueos, selectedDate]);
+    }, [courts, timeSlots, bookings, bloqueos, selectedDate, currentUserId]);
 
     const handleSlotClick = (courtId: number, slot: string) => {
         const state = slotMap[`${courtId}-${slot}`];
-        if (!state || state.occupied || state.blocked || state.closed || state.past) return;
+        if (!state || state.blocked || state.closed || state.past) return;
+
+        // Own booking: open cancel panel
+        if (state.mine && state.occupied && !state.occupied.is_recurrente) {
+            setCancelTarget(state.occupied);
+            setSelectedSlot(null);
+            setSelectedCourt(null);
+            return;
+        }
+
+        if (state.occupied) return; // someone else's booking
+        setCancelTarget(null);
         setSelectedCourt(courtId);
         setSelectedSlot(slot);
     };
@@ -278,6 +296,37 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                         </div>
                     </div>
                 )}
+
+                {cancelTarget && (() => {
+                    const startDate = new Date(cancelTarget.start_time);
+                    const timeStr = `${startDate.getHours().toString().padStart(2, '0')}:${startDate.getMinutes().toString().padStart(2, '0')}`;
+                    const courtName = courts.find(c => c.id === cancelTarget.court_id)?.nombre || `Cancha ${cancelTarget.court_id}`;
+                    return (
+                        <div className="glass animate-slide-up selected-slot-panel">
+                            <div className="selected-slot-info">
+                                <div className="selected-slot-title" style={{ color: '#C0392B' }}>
+                                    Cancelar reserva
+                                </div>
+                                <div className="selected-slot-date">
+                                    {courtName} • {timeStr} hs — {formatDate(selectedDate).dayName} {formatDate(selectedDate).dayNum}
+                                </div>
+                            </div>
+                            <div className="selected-slot-actions">
+                                <button className="btn-secondary" onClick={() => setCancelTarget(null)}>Volver</button>
+                                <button
+                                    className="btn-primary"
+                                    style={{ background: '#E74C3C', borderColor: '#E74C3C' }}
+                                    onClick={() => {
+                                        onCancelBooking?.(cancelTarget.id);
+                                        setCancelTarget(null);
+                                    }}
+                                >
+                                    Confirmar cancelación
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             <div style={{
@@ -341,8 +390,13 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                             if (isSlotBlocked) {
                                 bgColor = '#FFE0B2'; // Naranjita pastel
                                 opacity = 0.9;
-                                labelContent = <div style={{ color: '#E67E22', fontSize: '0.66rem', fontWeight: '800' }}>{state.blocked!.tipo.toUpperCase()}</div>;
+                                labelContent = <div style={{ color: '#E67E22', fontSize: '0.66rem', fontWeight: '800', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{state.blocked!.tipo.toUpperCase()}</div>;
                                 tooltip = state.blocked!.descripcion || `Canchas bloqueada por ${state.blocked!.tipo}`;
+                            } else if (state.mine && !state.occupied?.is_recurrente) {
+                                bgColor = '#C8E6C9'; // Verde pastel — mi turno
+                                opacity = 0.9;
+                                labelContent = <div style={{ color: '#2E7D32', fontSize: '0.63rem', fontWeight: '800' }}>MI TURNO</div>;
+                                tooltip = `Tu reserva (${state.occupied!.status === 'pending' ? 'Pendiente' : 'Confirmado'})`;
                             } else if (state.occupied?.is_recurrente) {
                                 bgColor = '#EDE7F6'; // Violeta pastel
                                 opacity = 0.9;
@@ -372,7 +426,7 @@ export default function Calendar({ onConfirm, refreshKey }: CalendarProps) {
                                 className="glass court-slot"
                                 title={tooltip}
                                 style={{
-                                    cursor: isSlotOccupied ? 'not-allowed' : 'pointer',
+                                    cursor: (state.mine && !state.occupied?.is_recurrente) ? 'pointer' : (isSlotOccupied ? 'not-allowed' : 'pointer'),
                                     background: bgColor,
                                     border: isSelected ? '2px solid var(--brand-blue)' : '1px solid var(--border)',
                                     opacity: opacity,

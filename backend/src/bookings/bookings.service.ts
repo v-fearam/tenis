@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
@@ -337,8 +338,9 @@ export class BookingsService {
       )
       .eq('estado', 'confirmado')
       .gte('fecha', fechaDesde || today)
-      .order('fecha', { ascending: true })
-      .order('hora_inicio', { ascending: true })
+      .order('id_turno_recurrente', { ascending: true, nullsFirst: true })
+      .order('fecha', { ascending: false })
+      .order('hora_inicio', { ascending: false })
       .range(offset, offset + pageSize - 1);
     if (fechaHasta) dataQuery = dataQuery.lte('fecha', fechaHasta);
     if (courtId) dataQuery = dataQuery.eq('id_cancha', courtId);
@@ -465,17 +467,35 @@ export class BookingsService {
     return this.mapToFrontendStructure(rawBooking);
   }
 
-  async cancel(bookingId: string, accessToken: string) {
+  async cancel(
+    bookingId: string,
+    accessToken: string,
+    requestingUser?: { id: string; rol: string },
+  ) {
     const client = this.supabaseService.getAuthenticatedClient(accessToken);
 
     const { data: booking, error: fetchError } = await client
       .from('turnos')
-      .select('id, estado, tipo_partido')
+      .select('id, estado, tipo_partido, creado_por, id_turno_recurrente')
       .eq('id', bookingId)
       .single();
 
     if (fetchError || !booking) {
       throw new NotFoundException('Reserva no encontrada');
+    }
+
+    // Non-admin users: ownership and recurring checks
+    if (requestingUser && requestingUser.rol !== 'admin') {
+      if (booking.id_turno_recurrente != null) {
+        throw new ForbiddenException(
+          'Los turnos recurrentes solo pueden ser cancelados por un administrador.',
+        );
+      }
+      if (booking.creado_por !== requestingUser.id) {
+        throw new ForbiddenException(
+          'Solo puede cancelar reservas que usted haya creado.',
+        );
+      }
     }
 
     // Refund abono credits for players that used them (single query + atomic batch refund)
@@ -535,7 +555,7 @@ export class BookingsService {
     const client = this.supabaseService.getOptionalClient(accessToken);
     const { data, error } = await client
       .from('turnos')
-      .select('id, id_cancha, fecha, hora_inicio, hora_fin, estado, id_turno_recurrente')
+      .select('id, id_cancha, fecha, hora_inicio, hora_fin, estado, id_turno_recurrente, creado_por')
       .eq('fecha', fecha)
       .neq('estado', 'cancelado');
 
@@ -580,6 +600,7 @@ export class BookingsService {
               ? 'confirmed'
               : 'unknown',
         is_recurrente: b.id_turno_recurrente != null,
+        created_by: b.creado_por || null,
       };
     });
   }
