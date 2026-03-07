@@ -135,6 +135,8 @@ export class BookingsService {
       );
     }
 
+    const estadoTurno = creatorId ? 'confirmado' : 'pendiente';
+
     const { data: booking, error: bookingError } = await client
       .from('turnos')
       .insert({
@@ -143,7 +145,7 @@ export class BookingsService {
         hora_inicio: hora_inicio,
         hora_fin: hora_fin,
         tipo_partido: createBookingDto.type,
-        estado: 'pendiente',
+        estado: estadoTurno,
         creado_por: creatorId,
         // Store organizer contact info if not authenticated
         ...(!creatorId
@@ -210,10 +212,30 @@ export class BookingsService {
       this.logger.error(`Error updating costo on turno: ${JSON.stringify(costoError)}`);
     }
 
+    // If auto-confirmed, fetch updated players and generate debts immediately
+    let updatedPlayers = insertedPlayers;
+    if (estadoTurno === 'confirmado') {
+      try {
+        const { data: updatedBooking } = await client
+          .from('turnos')
+          .select('*, turno_jugadores(*)')
+          .eq('id', booking.id)
+          .single();
+          
+        if (updatedBooking) {
+           await this.generatePlayerDebtsFromPrecalculated(updatedBooking, client);
+           updatedPlayers = updatedBooking.turno_jugadores;
+        }
+      } catch (debtError) {
+         this.logger.error(`Error generating debts for auto-confirmed booking ${booking.id}: ${JSON.stringify(debtError)}`);
+      }
+    }
+
     return this.mapToFrontendStructure({
       ...booking,
+      estado: estadoTurno,
       costo,
-      turno_jugadores: insertedPlayers,
+      turno_jugadores: updatedPlayers,
     });
   }
 

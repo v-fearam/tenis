@@ -27,7 +27,8 @@
       "Bash(xargs wc -l)",
       "Bash(wc -l /c/dev/tenis/db/migrations/*.sql /c/dev/tenis/db/seeds/*.sql /c/dev/tenis/backend/003_manual_config_table.sql)",
       "Bash(npx vercel ls)",
-      "Bash(npx --workspace=frontend tsc --noEmit)"
+      "Bash(npx --workspace=frontend tsc --noEmit)",
+      "Bash(xargs -I {} bash -c 'echo \"\"=== {} ===\"\"; ls -la {}')"
     ]
   },
   "enableAllProjectMcpServers": true,
