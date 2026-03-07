@@ -51,6 +51,31 @@ Isolated module. Turnos are created as `confirmado` with `tipo_partido: 'double'
 - Frontend: `id_usuario_responsable` (usuarios.id from typeahead) → service resolves to `socios.id`.
 - New tables: `turnos_recurrentes`, `movimientos_recurrentes`. New columns on `turnos`: `id_turno_recurrente`, `monto_recurrente`.
 
+## Testing (TDD — mandatory for backend changes)
+
+**Workflow obligatorio para cualquier cambio de backend:**
+1. Escribir el test en el `.service.spec.ts` correspondiente
+2. Correr `npx jest --testPathPatterns="nombre.service.spec" --forceExit` y verificar que **falla**
+3. Implementar la funcionalidad real
+4. Correr los tests y verificar que **pasan**
+
+**Infraestructura de tests:**
+- Mock factory: `src/__mocks__/supabase.mock.ts` — `createSupabaseMock(tableMap, rpcResponses)`
+- Fixtures compartidos: `src/__fixtures__/index.ts`
+- `tableMap`: `{ nombreTabla: [{ data, error, count? }, ...] }` — respuestas consumidas en orden por llamada
+- `rpcResponses`: array de `{ data, error }` para llamadas `.rpc()`
+
+**Convenciones clave:**
+- Importar `ConfigService` estáticamente: `import { ConfigService } from '@nestjs/config'`
+- Servicios lanzan objetos planos (`if (error) throw error`): usar `.rejects.toBeDefined()` no `.rejects.toThrow()`
+- `PaginatedResponseDto`: campos `.data[]` y `.meta.totalItems` (no `.total`)
+- Proveer tantas entradas en el array del tableMap como llamadas secuenciales haya a esa tabla
+
+```bash
+npx jest --testPathPatterns="service.spec" --forceExit   # todos los tests
+npx jest --testPathPatterns="bookings" --forceExit        # solo un módulo
+```
+
 ## Database & API Reference
 
 See `docs/claude-reference.md` for full endpoints and schema.
