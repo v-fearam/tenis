@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AbonosService } from './abonos.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { createSupabaseMock } from '../__mocks__/supabase.mock';
@@ -16,7 +17,6 @@ describe('AbonosService', () => {
   const buildModule = async (tableMap = {}) => {
     const { mockService, mockClient: mc } = createSupabaseMock(tableMap);
     mockClient = mc;
-    const { ConfigService } = await import('@nestjs/config');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AbonosService,

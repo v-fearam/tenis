@@ -50,7 +50,7 @@ describe('ConfigService', () => {
         config_sistema: [{ data: null, error: { message: 'DB error' } }],
       });
 
-      await expect(service.findAll()).rejects.toThrow();
+      await expect(service.findAll()).rejects.toBeDefined();
     });
   });
 

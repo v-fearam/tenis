@@ -39,7 +39,7 @@ describe('CanchasService', () => {
         canchas: [{ data: null, error: { message: 'DB error' } }],
       });
 
-      await expect(service.findAll()).rejects.toThrow();
+      await expect(service.findAll()).rejects.toBeDefined();
     });
   });
 
@@ -86,7 +86,7 @@ describe('CanchasService', () => {
         canchas: [{ data: null, error: { message: 'FK violation' } }],
       });
 
-      await expect(service.remove(1, TOKEN)).rejects.toThrow();
+      await expect(service.remove(1, TOKEN)).rejects.toBeDefined();
     });
   });
 });

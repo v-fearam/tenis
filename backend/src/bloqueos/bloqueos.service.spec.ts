@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { BloqueosService } from './bloqueos.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { createSupabaseMock } from '../__mocks__/supabase.mock';
@@ -16,7 +17,6 @@ describe('BloqueosService', () => {
   const buildModule = async (tableMap = {}) => {
     const { mockService, mockClient: mc } = createSupabaseMock(tableMap);
     mockClient = mc;
-    const { ConfigService } = await import('@nestjs/config');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BloqueosService,

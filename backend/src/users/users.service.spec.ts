@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { createSupabaseMock } from '../__mocks__/supabase.mock';
@@ -15,7 +16,6 @@ describe('UsersService', () => {
   const buildModule = async (tableMap = {}) => {
     const { mockService, mockClient: mc } = createSupabaseMock(tableMap);
     mockClient = mc;
-    const { ConfigService } = await import('@nestjs/config');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -149,7 +149,7 @@ describe('UsersService', () => {
 
       expect(result.deuda_total).toBe(1000); // 600 + 400
       expect(result.turnos.data).toHaveLength(1);
-      expect(result.turnos.total).toBe(1);
+      expect(result.turnos.meta.totalItems).toBe(1);
     });
 
     it('returns deuda_total = 0 when no pending rows', async () => {
@@ -181,7 +181,7 @@ describe('UsersService', () => {
       const result = await service.searchPublic('Carlos');
 
       expect(result).toHaveLength(2);
-      expect(mockClient.from('usuarios').ilike).toHaveBeenCalled();
+      expect(mockClient.from('usuarios').or).toHaveBeenCalled();
     });
   });
 });

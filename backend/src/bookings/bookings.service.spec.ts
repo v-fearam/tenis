@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { BookingsService } from './bookings.service';
 import { AbonosService } from '../abonos/abonos.service';
 import { SupabaseService } from '../supabase/supabase.service';
@@ -23,7 +24,6 @@ describe('BookingsService', () => {
   const buildModule = async (tableMap = {}, rpcResponses: any[] = []) => {
     const { mockService, mockClient: mc } = createSupabaseMock(tableMap, rpcResponses);
     mockClient = mc;
-    const { ConfigService } = await import('@nestjs/config');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BookingsService,
@@ -60,7 +60,7 @@ describe('BookingsService', () => {
       await buildModule({
         config_sistema: [{ data: configData, error: null }],
         socios: [{ data: [fixtures.socio_sin_creditos], error: null }],
-        usuarios: [{ data: [fixtures.usuario_socio_sin_abono], error: null }],
+        usuarios: [{ data: [fixtures.usuario_socio_con_abono], error: null }], // id matches 'uuid-socio-001'
       });
 
       const result = await service.previewCost(
@@ -91,8 +91,8 @@ describe('BookingsService', () => {
     it('splits cost among players in doubles', async () => {
       await buildModule({
         config_sistema: [{ data: configData, error: null }],
-        socios: [{ data: [fixtures.socio_sin_creditos, fixtures.socio_sin_creditos], error: null }],
-        usuarios: [{ data: [fixtures.usuario_socio_sin_abono, fixtures.usuario_socio_sin_abono], error: null }],
+        socios: [{ data: [fixtures.socio_sin_creditos, fixtures.socio_sin_abono], error: null }],
+        usuarios: [{ data: [fixtures.usuario_socio_con_abono, fixtures.usuario_socio_sin_abono], error: null }],
       });
 
       const result = await service.previewCost(
@@ -231,7 +231,7 @@ describe('BookingsService', () => {
 
       expect(mockClient.from('turnos').insert).toHaveBeenCalled();
       expect(mockClient.from('turno_jugadores').insert).toHaveBeenCalled();
-      expect(result.status).toBe('pending');
+      expect(result.status).toBe('confirmed'); // creatorId is set → auto-confirmed
     });
   });
 
@@ -396,7 +396,7 @@ describe('BookingsService', () => {
       const result = await service.findCobrados({ page: 1, pageSize: 20 }, TOKEN);
 
       expect(result.data).toHaveLength(0);
-      expect(result.total).toBe(0);
+      expect(result.meta.totalItems).toBe(0);
     });
   });
 });

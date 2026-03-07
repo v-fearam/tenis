@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PagosService } from './pagos.service';
 import { SupabaseService } from '../supabase/supabase.service';
 import { createSupabaseMock } from '../__mocks__/supabase.mock';
@@ -16,7 +17,6 @@ describe('PagosService', () => {
   const buildModule = async (tableMap = {}) => {
     const { mockService, mockClient: mc } = createSupabaseMock(tableMap);
     mockClient = mc;
-    const { ConfigService } = await import('@nestjs/config');
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PagosService,
@@ -298,10 +298,10 @@ describe('PagosService', () => {
       await buildModule({
         pagos: [
           { data: [{ monto: '1000' }, { monto: '500' }], error: null },  // cobrado_turnos = 1500
-          { data: [{ monto: '200' }], error: null },                       // totalPagadoRec (sequential)
         ],
         movimientos_recurrentes: [
-          { data: [{ monto: '800' }], error: null },  // cobrado_recurrentes = 800 (Promise.all)
+          { data: [{ monto: '800' }], error: null },   // cobrado_recurrentes = 800 (Promise.all)
+          { data: [{ monto: '200' }], error: null },   // totalPagadoRec (sequential after Promise.all)
         ],
         socios: [
           { data: [{ tipos_abono: { precio: '5000' } }, { tipos_abono: { precio: '5000' } }], error: null }, // cobrado_abonos = 10000
@@ -322,7 +322,8 @@ describe('PagosService', () => {
       expect(result.cobrado_turnos).toBe(1500);
       expect(result.cobrado_recurrentes).toBe(800);
       expect(result.cobrado_abonos).toBe(10000);
-      expect(result.deuda_pendiente).toBe(1000); // 1000 (turnos) + max(0, 800 - 200) = 1000 + 600 = 1600
+      // deuda = turno_jugadores(1000) + max(0, monto_rec_pasado(800) - totalPagado(200)) = 1000 + 600 = 1600
+      expect(result.deuda_pendiente).toBe(1600);
 
       // tendencia: (12300 - 9500) / 9500 * 100 ≈ 29.5%
       expect(result.tendencia_pct).toBeDefined();
