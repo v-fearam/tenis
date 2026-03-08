@@ -565,9 +565,9 @@ export default function AdminDashboard() {
                 return (
                     <div style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 1000,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
                     }} onClick={() => { setShowCierreModal(false); setCierreConfirmText(''); }}>
-                        <div className="card glass animate-slide-up" style={{ maxWidth: '520px', width: '100%', padding: '28px' }} onClick={e => e.stopPropagation()}>
+                        <div className="card glass animate-slide-up" style={{ maxWidth: '520px', width: '100%', padding: '24px', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                                 <div style={{ padding: '10px', borderRadius: '12px', background: '#FDEDEC', color: '#E74C3C', display: 'flex' }}>
@@ -748,12 +748,12 @@ export default function AdminDashboard() {
                     </div>
                 )}
 
-                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                     <div>
                         <h1 style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.5px', marginBottom: '2px' }}>Gestión de Turnos</h1>
                         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Reservas y aprobaciones</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         <button
                             onClick={() => setShowPurgeModal(true)}
                             className="btn-secondary"

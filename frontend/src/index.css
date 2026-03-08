@@ -967,6 +967,18 @@ body {
   color: var(--text-main);
 }
 
+/* Sidebar thin scrollbar */
+.glass::-webkit-scrollbar {
+  width: 4px;
+}
+.glass::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+.glass::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 /* Responsive tweaks */
 @media (max-width: 400px) {
   .historial-estado-chip {

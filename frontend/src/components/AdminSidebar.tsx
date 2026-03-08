@@ -25,7 +25,7 @@ function SidebarLink({ to, icon, label, count, collapsed }: SidebarLinkProps) {
             display: 'flex',
             alignItems: 'center',
             gap: collapsed ? '0' : '12px',
-            padding: '12px',
+            padding: '10px 12px',
             borderRadius: '12px',
             color: isActive ? 'var(--brand-blue)' : 'var(--text-main)',
             background: isActive ? 'var(--brand-blue-pastel)' : 'transparent',
@@ -67,7 +67,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
             onMouseLeave={() => setIsHovered(false)}
             style={{
                 width: width,
-                padding: collapsed ? '30px 10px' : '30px 20px',
+                padding: collapsed ? '20px 10px' : '20px 20px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
@@ -78,7 +78,8 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
                 height: '100vh',
                 zIndex: 1000,
                 transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                overflow: 'hidden'
+                overflowX: 'hidden',
+                overflowY: 'auto'
             }}
         >
             {/* Header / Pin */}
@@ -86,7 +87,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: collapsed ? 'center' : 'space-between',
-                marginBottom: '40px',
+                marginBottom: '20px',
                 padding: '0 10px'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -112,7 +113,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
 
             <SidebarLink to="/" icon={<Home size={20} />} label="Vista Socio" collapsed={collapsed} />
 
-            <div style={{ margin: '10px 0' }} />
+            <div style={{ margin: '6px 0' }} />
 
             <div style={{ fontSize: '0.65rem', fontWeight: '900', color: 'var(--text-muted)', letterSpacing: '1px', padding: '0 10px 5px', textAlign: collapsed ? 'center' : 'left' }}>
                 {collapsed ? '•' : 'OPERACIONES'}
@@ -121,7 +122,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
             <SidebarLink to="/admin" icon={<LayoutGrid size={20} />} label="Turnos" collapsed={collapsed} />
             <SidebarLink to="/admin/turnos-recurrentes" icon={<Repeat size={20} />} label="Recurrentes" collapsed={collapsed} />
 
-            <div style={{ margin: '10px 0' }} />
+            <div style={{ margin: '6px 0' }} />
 
             <div style={{ fontSize: '0.65rem', fontWeight: '900', color: 'var(--text-muted)', letterSpacing: '1px', padding: '0 10px 5px', textAlign: collapsed ? 'center' : 'left' }}>
                 {collapsed ? '•' : 'SOCIOS'}
@@ -131,7 +132,7 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
             <SidebarLink to="/admin/abonos" icon={<Ticket size={20} />} label="Abonos" collapsed={collapsed} />
             <SidebarLink to="/admin/finanzas" icon={<CreditCard size={20} />} label="Finanzas" collapsed={collapsed} />
 
-            <div style={{ margin: '10px 0' }} />
+            <div style={{ margin: '6px 0' }} />
 
             <div style={{ fontSize: '0.65rem', fontWeight: '900', color: 'var(--text-muted)', letterSpacing: '1px', padding: '0 10px 5px', textAlign: collapsed ? 'center' : 'left' }}>
                 {collapsed ? '•' : 'SISTEMA'}
