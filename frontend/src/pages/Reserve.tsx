@@ -432,8 +432,8 @@ export default function Reserve() {
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: '4px',
                                         padding: '3px 8px', borderRadius: 6,
-                                        background: 'transparent', border: '1px solid var(--border)',
-                                        fontSize: '0.7rem', fontWeight: '600', color: 'var(--text-muted)',
+                                        background: '#e8f5e9', border: '1px solid #a5d6a7',
+                                        fontSize: '0.7rem', fontWeight: '600', color: '#2e7d32',
                                         cursor: 'pointer', whiteSpace: 'nowrap',
                                     }}
                                 >
