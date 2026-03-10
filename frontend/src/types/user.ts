@@ -11,6 +11,9 @@ export interface Usuario {
   estado: EstadoUsuario;
   force_password_change: boolean;
   ok_club: boolean;
+  failed_login_attempts?: number;
+  is_locked?: boolean;
+  locked_at?: string | null;
   created_at: string;
   socios?: Socio[];
 }
@@ -49,4 +52,5 @@ export interface UpdateUserPayload {
   force_password_change?: boolean;
   ok_club?: boolean;
   password?: string;
+  is_locked?: boolean;
 }

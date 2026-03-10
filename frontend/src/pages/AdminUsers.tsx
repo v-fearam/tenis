@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import type { Usuario, CreateUserPayload, UpdateUserPayload, UserRole } from '../types/user';
-import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff, AlertCircle, History } from 'lucide-react';
+import { Search, Plus, Edit2, X, UserCheck, UserX, Eye, EyeOff, AlertCircle, History, Lock } from 'lucide-react';
 import { Toast, type ToastType } from '../components/Toast';
 import { usePagination } from '../hooks/usePagination';
 import type { PaginatedResponse } from '../types/pagination';
@@ -34,6 +34,7 @@ export default function AdminUsers() {
     rol: 'socio' as UserRole,
     force_password_change: false,
     ok_club: true,
+    unlock: false,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -64,7 +65,7 @@ export default function AdminUsers() {
     : users;
 
   const openCreateModal = () => {
-    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio', force_password_change: false, ok_club: true });
+    setFormData({ nombre: '', email: '', password: '', dni: '', telefono: '', rol: 'socio', force_password_change: false, ok_club: true, unlock: false });
     setShowPassword(false);
     setEditingUser(null);
     setFormError('');
@@ -81,6 +82,7 @@ export default function AdminUsers() {
       rol: user.rol,
       force_password_change: user.force_password_change || false,
       ok_club: user.ok_club ?? true,
+      unlock: false,
     });
     setEditingUser(user);
     setFormError('');
@@ -124,6 +126,10 @@ export default function AdminUsers() {
           payload.ok_club = formData.ok_club;
         }
         if (formData.password) payload.password = formData.password;
+        if (formData.unlock && editingUser.is_locked) {
+          payload.is_locked = false;
+          if (formData.password) payload.force_password_change = true;
+        }
         await api.patch(`/users/${editingUser.id}`, payload);
       }
       closeModal();
@@ -273,13 +279,25 @@ export default function AdminUsers() {
                     </span>
                   </td>
                   <td style={tdStyle}>
-                    <span style={{
-                      color: user.estado === 'activo' ? '#27AE60' : '#E74C3C',
-                      fontWeight: '600',
-                      fontSize: '0.85rem',
-                    }}>
-                      {user.estado === 'activo' ? 'Activo' : 'Inactivo'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{
+                        color: user.estado === 'activo' ? '#27AE60' : '#E74C3C',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                      }}>
+                        {user.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {user.is_locked && (
+                        <span title="Cuenta bloqueada por intentos fallidos" style={{
+                          background: '#FFF3E0', color: '#E65100',
+                          padding: '2px 6px', borderRadius: '8px',
+                          fontSize: '0.65rem', fontWeight: '700',
+                          display: 'inline-flex', alignItems: 'center', gap: '3px',
+                        }}>
+                          <Lock size={10} /> Bloqueada
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
@@ -485,6 +503,34 @@ export default function AdminUsers() {
                     )}
                   </span>
                 </label>
+
+                {modalMode === 'edit' && editingUser?.is_locked && (
+                  <div style={{
+                    background: '#FFF8E1', border: '1px solid #FFE082',
+                    borderRadius: 'var(--radius-sm)', padding: '12px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <Lock size={16} style={{ color: '#E65100' }} />
+                      <span style={{ fontWeight: '700', fontSize: '0.85rem', color: '#E65100' }}>
+                        Cuenta bloqueada
+                      </span>
+                    </div>
+                    {editingUser.locked_at && (
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 8px' }}>
+                        Bloqueada el {new Date(editingUser.locked_at).toLocaleDateString('es-AR')}
+                      </p>
+                    )}
+                    <label className="checkbox-group" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        className="checkbox-input"
+                        checked={formData.unlock}
+                        onChange={(e) => setFormData({ ...formData, unlock: e.target.checked })}
+                      />
+                      <span className="checkbox-label">Desbloquear cuenta</span>
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">

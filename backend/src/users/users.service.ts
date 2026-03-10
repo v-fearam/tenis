@@ -204,7 +204,14 @@ export class UsersService {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...dbUpdateData } = updateUserDto;
+    const { password, is_locked, ...dbUpdateData } = updateUserDto;
+
+    // Auto-reset lockout fields when unlocking
+    if (is_locked === false) {
+      (dbUpdateData as any).is_locked = false;
+      (dbUpdateData as any).failed_login_attempts = 0;
+      (dbUpdateData as any).locked_at = null;
+    }
 
     // No-socios always have ok_club = false
     if (dbUpdateData.rol === 'no-socio') {

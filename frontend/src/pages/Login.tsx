@@ -8,6 +8,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLocked, setIsLocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
@@ -33,7 +34,9 @@ export default function Login() {
         navigate(from, { replace: true });
       }
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const msg = err.message || 'Error al iniciar sesión';
+      setError(msg);
+      setIsLocked(msg.includes('bloqueada'));
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,13 @@ export default function Login() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          {error && <div className="alert-error">{error}</div>}
+          {error && (
+            <div className="alert-error" style={isLocked ? {
+              background: '#FFF3E0', color: '#E65100', borderColor: '#FFB74D',
+            } : undefined}>
+              {error}
+            </div>
+          )}
 
           <div style={{ marginBottom: '16px', textAlign: 'left' }}>
             <label className="form-label">Email</label>

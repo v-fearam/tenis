@@ -11,13 +11,47 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const client = this.supabaseService.getClient();
 
+    // Check if account is locked
+    const { data: usuario, error: lookupError } = await client
+      .from('usuarios')
+      .select('*')
+      .eq('email', loginDto.email)
+      .maybeSingle();
+
+    if (usuario?.is_locked) {
+      throw new UnauthorizedException(
+        'Cuenta bloqueada por intentos fallidos. Contactá al administrador.',
+      );
+    }
+
     const { data, error } = await client.auth.signInWithPassword({
       email: loginDto.email,
       password: loginDto.password,
     });
 
     if (error) {
+      // Increment failed attempts if user exists
+      if (usuario) {
+        const newAttempts = (usuario.failed_login_attempts || 0) + 1;
+        const updateData: any = { failed_login_attempts: newAttempts };
+        if (newAttempts >= 5) {
+          updateData.is_locked = true;
+          updateData.locked_at = new Date().toISOString();
+        }
+        await client
+          .from('usuarios')
+          .update(updateData)
+          .eq('id', usuario.id);
+      }
       throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    // Reset failed attempts on successful login
+    if (usuario && usuario.failed_login_attempts > 0) {
+      await client
+        .from('usuarios')
+        .update({ failed_login_attempts: 0 })
+        .eq('id', usuario.id);
     }
 
     // Use the session token to create an authenticated client so RLS works
@@ -27,7 +61,7 @@ export class AuthService {
 
     this.logger.log(`Login successful for user ${data.user.id}`);
 
-    const { data: usuario, error: profileError } = await authClient
+    const { data: profile, error: profileError } = await authClient
       .from('usuarios')
       .select('*')
       .eq('id', data.user.id)
@@ -38,7 +72,7 @@ export class AuthService {
       email: data.user.email,
       nombre: data.user.user_metadata?.nombre,
       rol: data.user.user_metadata?.rol || 'socio',
-      ...usuario,
+      ...profile,
     };
 
     return {
@@ -151,26 +185,50 @@ export class AuthService {
     return usuario;
   }
 
-  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+  async changePassword(user: any, changePasswordDto: ChangePasswordDto, ipAddress?: string) {
     const client = this.supabaseService.getClient();
 
-    // 1. Update password in Supabase Auth
-    const { error: authError } = await client.auth.admin.updateUserById(userId, {
+    // 1. Validate current password (skip if force_password_change)
+    if (!user.force_password_change) {
+      if (!changePasswordDto.currentPassword) {
+        throw new UnauthorizedException('Debe ingresar la contraseña actual');
+      }
+      const { error: verifyError } = await client.auth.signInWithPassword({
+        email: user.email,
+        password: changePasswordDto.currentPassword,
+      });
+      if (verifyError) {
+        throw new UnauthorizedException('Contraseña actual incorrecta');
+      }
+    }
+
+    // 2. Update password in Supabase Auth
+    const { error: authError } = await client.auth.admin.updateUserById(user.id, {
       password: changePasswordDto.newPassword,
     });
 
     if (authError) throw authError;
 
-    // 2. Reset force_password_change flag in usuarios table
+    // 3. Reset force_password_change flag in usuarios table
     const { error: dbError } = await client
       .from('usuarios')
       .update({
         force_password_change: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq('id', user.id);
 
     if (dbError) throw dbError;
+
+    // 4. Audit log
+    await client
+      .from('audit_log')
+      .insert({
+        user_id: user.id,
+        action: 'password_change',
+        details: { forced: !!user.force_password_change },
+        ip_address: ipAddress || null,
+      });
 
     return { message: 'Contraseña actualizada correctamente' };
   }

@@ -35,6 +35,10 @@ export class RefreshTokenDto {
 }
 
 export class ChangePasswordDto {
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
+
   @IsString()
   @MinLength(6)
   newPassword: string;

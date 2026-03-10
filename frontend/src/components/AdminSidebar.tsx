@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     Users, CreditCard, Settings, LayoutGrid, ShieldAlert,
-    ChevronLeft, Pin, PinOff, Home, Ticket, Repeat
+    ChevronLeft, Pin, PinOff, Home, Ticket, Repeat, Lock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.jpg';
@@ -164,6 +164,15 @@ export default function AdminSidebar({ isPinned, onPinChange }: { isPinned: bool
                         </div>
                     )}
                 </div>
+                {!collapsed && (
+                    <Link to="/change-password" style={{
+                        textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px',
+                        padding: '8px 10px', borderRadius: '8px', fontSize: '0.8rem',
+                        color: 'var(--text-muted)', fontWeight: '600',
+                    }}>
+                        <Lock size={14} /> Cambiar Contraseña
+                    </Link>
+                )}
                 {!collapsed ? (
                     <button onClick={logout} className="btn-secondary" style={{ width: '100%', color: '#E74C3C', border: 'none', padding: '10px', fontSize: '0.85rem' }}>
                         Cerrar Sesión

@@ -221,6 +221,12 @@ export default function Reserve() {
                                 <span className="reserve-user-name">
                                     {user.nombre || user.email?.split('@')[0] || 'Socio'}
                                 </span>
+                                <a href="/change-password" style={{
+                                    fontSize: '0.75rem', color: 'var(--text-muted)',
+                                    textDecoration: 'none',
+                                }}>
+                                    Cambiar Contraseña
+                                </a>
                                 <button onClick={handleLogout} className="reserve-btn-logout">
                                     Salir
                                 </button>

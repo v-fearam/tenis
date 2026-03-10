@@ -6,6 +6,8 @@ import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import logo from '../assets/logo.jpg';
 
 export default function ChangePassword() {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -14,12 +16,19 @@ export default function ChangePassword() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
     const navigate = useNavigate();
+
+    const isForced = !!user?.force_password_change;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!isForced && !currentPassword) {
+            setError('Debes ingresar tu contraseña actual');
+            return;
+        }
 
         if (newPassword !== confirmPassword) {
             setError('Las contraseñas no coinciden');
@@ -33,7 +42,9 @@ export default function ChangePassword() {
 
         setLoading(true);
         try {
-            await api.patch('/auth/change-password', { newPassword });
+            const payload: any = { newPassword };
+            if (!isForced) payload.currentPassword = currentPassword;
+            await api.patch('/auth/change-password', payload);
             setSuccess(true);
             // Automatically logout and redirect after a few seconds
             setTimeout(() => {
@@ -87,11 +98,39 @@ export default function ChangePassword() {
                     Cambiar Contraseña
                 </h1>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '0.9rem' }}>
-                    Por seguridad, debes establecer una nueva contraseña para continuar.
+                    {isForced
+                        ? 'Por seguridad, debes establecer una nueva contraseña para continuar.'
+                        : 'Ingresá tu contraseña actual y elegí una nueva.'}
                 </p>
 
                 <form onSubmit={handleSubmit}>
                     {error && <div className="alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+
+                    {!isForced && (
+                        <div style={{ marginBottom: '16px', textAlign: 'left' }}>
+                            <label className="form-label">Contraseña Actual</label>
+                            <div className="input-with-icon">
+                                <input
+                                    type={showCurrentPassword ? 'text' : 'password'}
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    required
+                                    placeholder="Tu contraseña actual"
+                                    className="form-input"
+                                    style={{ paddingRight: '45px' }}
+                                    autoComplete="current-password"
+                                />
+                                <button
+                                    type="button"
+                                    className="input-icon-btn"
+                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                    aria-label={showCurrentPassword ? "Ocultar contraseña" : "Ver contraseña"}
+                                >
+                                    {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div style={{ marginBottom: '16px', textAlign: 'left' }}>
                         <label className="form-label">Nueva Contraseña</label>
@@ -104,6 +143,7 @@ export default function ChangePassword() {
                                 placeholder="Mínimo 6 caracteres"
                                 className="form-input"
                                 style={{ paddingRight: '45px' }}
+                                autoComplete="new-password"
                             />
                             <button
                                 type="button"
@@ -127,6 +167,7 @@ export default function ChangePassword() {
                                 placeholder="Repite la contraseña"
                                 className="form-input"
                                 style={{ paddingRight: '45px' }}
+                                autoComplete="new-password"
                             />
                             <button
                                 type="button"
@@ -154,10 +195,17 @@ export default function ChangePassword() {
                 </form>
 
                 <button
-                    onClick={() => { logout(); navigate('/login'); }}
+                    onClick={() => {
+                        if (isForced) {
+                            logout();
+                            navigate('/login');
+                        } else {
+                            navigate(-1);
+                        }
+                    }}
                     style={{ background: 'none', border: 'none', marginTop: '20px', color: 'var(--text-muted)', fontSize: '0.9rem', cursor: 'pointer' }}
                 >
-                    Cancelar y salir
+                    {isForced ? 'Cancelar y salir' : 'Volver'}
                 </button>
             </div>
         </div>

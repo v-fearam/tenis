@@ -41,6 +41,10 @@ export class UpdateUserDto {
   @IsString()
   @MinLength(6)
   password?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_locked?: boolean;
 }
 
 export class UpdateSocioDto {

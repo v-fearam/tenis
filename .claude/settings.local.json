@@ -33,7 +33,10 @@
       "Bash(npx jest --testPathPatterns=\"config.service\" --no-coverage)",
       "Bash(npx jest --testPathPatterns=\"canchas.service|bloqueos.service\" --no-coverage)",
       "Bash(npm test -- --testPathPattern=\"service.spec\" --forceExit)",
-      "Bash(npx jest --testPathPatterns=\"service.spec\" --forceExit)"
+      "Bash(npx jest --testPathPatterns=\"service.spec\" --forceExit)",
+      "Bash(npx jest --testPathPatterns=\"auth.service.spec\" --forceExit)",
+      "Bash(npm run test -- --testPathPatterns=\"auth.service.spec\" --forceExit)",
+      "Bash(npm run test)"
     ]
   },
   "enableAllProjectMcpServers": true,
